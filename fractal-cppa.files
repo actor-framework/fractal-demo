@@ -1,3 +1,8 @@
 src/fractal_client.cpp
 src/fractal_server.cpp
+src/imagelabel.cpp
+src/q_byte_array_info.cpp
 hdr/fractal_cppa.hpp
+hdr/imagelabel.h
+hdr/q_byte_array_info.hpp
+hdr/server.hpp

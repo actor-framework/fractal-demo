@@ -1,0 +1,3 @@
+src/fractal_client.cpp
+src/fractal_server.cpp
+hdr/fractal_cppa.hpp

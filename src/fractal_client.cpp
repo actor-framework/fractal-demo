@@ -26,8 +26,8 @@ class client : public event_based_actor {
     actor_ptr m_printer;
     bool m_connected;
 
-    int m_width;
-    int m_height;
+    uint32_t m_width;
+    uint32_t m_height;
 
     double m_min_re;
     double m_max_re;
@@ -37,7 +37,7 @@ class client : public event_based_actor {
     double m_re_factor;
     double m_im_factor;
 
-    int m_iterations;
+    uint32_t m_iterations;
 
     vector<QRgb> m_palette;
 
@@ -47,17 +47,19 @@ class client : public event_based_actor {
                 send(m_printer, "pong");
             },
             on(atom("next")) >> [=] {
-                send(m_printer, "Asking server for work.");
-                send(m_server, atom("enqueue"));
+                if(m_connected) {
+                    send(m_printer, "Asking server for work.");
+                    send(m_server, atom("enqueue"));
+                }
             },
             on(atom("assign"), arg_match) >> [=](uint32_t id) {
                 send(m_printer, "Got assingment.");
                 QImage image(m_width, m_height, QImage::Format_RGB32);
                 for(int y = m_height-1; y >= 0; --y) {
-                    for(int x = 0; x < m_width; ++x) {
+                    for(uint32_t x = 0; x < m_width; ++x) {
                         complex_d z = complex_d(m_min_re + x * m_re_factor, m_max_im - y * m_im_factor);
                         const complex_d constant = z;
-                        int cnt = 0;
+                        uint32_t cnt = 0;
                         for(bool done = false; !done;) {
                             z = pow(z, 2) + constant;
                             cnt++;
@@ -80,7 +82,7 @@ class client : public event_based_actor {
             on(atom("quit")) >> [=]() {
                 quit();
             },
-            on(atom("initialize"), arg_match) >> [=](int width, int height, double min_re,double max_re, double min_im, double max_im, int iterations) {
+            on(atom("initialize"), arg_match) >> [=](uint32_t width, uint32_t height, double min_re,double max_re, double min_im, double max_im, uint32_t iterations) {
                 m_width  = width;
                 m_height = height;
                 m_min_re = min_re;
@@ -93,7 +95,7 @@ class client : public event_based_actor {
                     m_iterations = iterations;
                     m_palette.clear();
                     m_palette.reserve(m_iterations+1);
-                    for(int i = 0; i <= m_iterations; ++i) {
+                    for(uint32_t i = 0; i <= m_iterations; ++i) {
                         if(i < m_iterations/2) {
                             // m_palette.push_back(qRgb((255.0/(m_iterations/2.0))*i,0,0)); // black to red
                             m_palette.push_back(qRgb(0,0,(255.0/(m_iterations/2.0))*i)); // black to blue
@@ -109,11 +111,10 @@ class client : public event_based_actor {
                     }
                 }
             },
-            on(atom("init"), atom("assign"), arg_match) >> [=](int width, int height, double min_re,double max_re, double min_im, double max_im, int iterations, uint32_t id) {
-                //stringstream strstr;
-                //strstr << "Received init & assign. (id: " << id << ")";
-                //send(m_printer, strstr.str());
-                cout << "Received init & assign. (id: " << id << ")";
+            on(atom("init"), atom("assign"), arg_match) >> [=](uint32_t width, uint32_t height, double min_re,double max_re, double min_im, double max_im, uint32_t iterations, uint32_t id) {
+                stringstream strstr;
+                strstr << "Received init & assign. (id: " << id << ")";
+                send(m_printer, strstr.str());
                 m_width  = width;
                 m_height = height;
                 m_min_re = min_re;
@@ -127,7 +128,7 @@ class client : public event_based_actor {
                     //send(self, atom("config"));
                     m_palette.clear();
                     m_palette.reserve(m_iterations+1);
-                    for(int i = 0; i <= m_iterations; ++i) {
+                    for(uint32_t i = 0; i < m_iterations; ++i) {
                         if(i < m_iterations/2) {
                             // m_palette.push_back(qRgb((255.0/(m_iterations/2.0))*i,0,0)); // black to red
                             m_palette.push_back(qRgb(0,0,(255.0/(m_iterations/2.0))*i)); // black to blue
@@ -136,18 +137,22 @@ class client : public event_based_actor {
                             // m_palette.push_back(qRgb(255.0,
                             //                         (255.0/(m_iterations/2.0))*(i-(m_iterations/2.0)),
                             //                         (255.0/(m_iterations/2.0))*(i-(m_iterations/2.0)))); // red to white
+//                            m_palette.push_back(qRgb((255.0/(m_iterations/2.0))*(i-(m_iterations/2.0)),
+//                                                     (255.0/(m_iterations/2.0))*(i-(m_iterations/2.0)),
+//                                                     255.0)); // blue to white
                             m_palette.push_back(qRgb((255.0/(m_iterations/2.0))*(i-(m_iterations/2.0)),
-                                                     (255.0/(m_iterations/2.0))*(i-(m_iterations/2.0)),
-                                                     255.0)); // blue to white
+                                                     0,
+                                                     255.0)); // blue to purple
                         }
                     }
+                    m_palette.push_back(qRgb(0,0,0));
                 }
                 QImage image(m_width, m_height, QImage::Format_RGB32);
                 for(int y = m_height-1; y >= 0; --y) {
-                    for(int x = 0; x < m_width; ++x) {
+                    for(uint32_t x = 0; x < m_width; ++x) {
                         complex_d z = complex_d(m_min_re + x * m_re_factor, m_max_im - y * m_im_factor);
                         const complex_d constant = z;
-                        int cnt = 0;
+                        uint32_t cnt = 0;
                         for(bool done = false; !done;) {
                             z = pow(z, 2) + constant;
                             cnt++;
@@ -166,7 +171,7 @@ class client : public event_based_actor {
                 buf.close();
                 send(m_printer, "Sending.");
                 reply(atom("result"), id, ba);
-                //send(this, atom("next"));
+                send(this, atom("next"));
             },
             on(atom("config")) >> [=] {
                 stringstream strstr;
@@ -214,10 +219,6 @@ class client : public event_based_actor {
                 // send(self, atom("next"));
                 // send(m_server, atom("enqueue"));
                 // send(m_printer, "Waiting for work.");
-            },
-            on(atom("DOWN"), arg_match) >> [=](std::uint32_t err) {
-                send(m_printer, "Server shut down!");
-                m_connected = false;
             },
             on(atom("EXIT"), arg_match) >> [=](std::uint32_t err) {
                 send(m_printer, "Server shut down!");

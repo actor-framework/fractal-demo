@@ -31,32 +31,73 @@ using namespace std;
 void server::init() {
         trap_exit(true);
         become (
-            on(atom("enqueue")) >> [=] {
-                // reply(atom("initialize"), m_width, m_height, m_min_re, m_max_re, m_min_im, m_max_im, m_iterations);
-                // reply(atom("assign"), ++m_id);
+            on(atom("next")) >> [=] {
                 stringstream strstr;
-                strstr << "Worker enqueued, sending assingment with id: " << (m_id+1) << ".";
-                send(m_printer, strstr.str());
-                reply(atom("init"), atom("assign"), m_width, m_height, m_min_re, m_max_re, m_min_im, m_max_im, m_iterations, ++m_id);
-                m_min_re *= 0.90;
-                m_max_re *= 0.90;
-                m_min_im *= 0.90;
-                m_max_im = m_min_im+(m_max_re-m_min_re)*m_height/m_width;
-                m_re_factor = (m_max_re-m_min_re)/(m_width-1);
-                m_im_factor = (m_max_im-m_min_im)/(m_height-1);
-                //send(self, atom("config"), atom("small"));
-            },
-            on(atom("result"), arg_match) >> [=](uint32_t id, QByteArray ba) {
-                if(ba.size() > 0) {
-                    stringstream strstr;
-                    strstr << "Received image with id: " << id << ".";
-                    send(m_printer, strstr.str());
-                    emit(setPixmapWithByteArray(ba));
+                strstr << "Looking for next picture. Trying ids: " << m_next_id;
+                auto id_itr = m_missing_ids.find(m_next_id);
+                auto e = m_missing_ids.end();
+                while(id_itr != e) {
+                    ++m_next_id;
+                    m_missing_ids.erase(id_itr);
+                    id_itr = m_missing_ids.find(m_next_id);
+                    strstr << ", " << m_next_id;
+                }
+                auto ba_itr = m_results.find(m_next_id);
+                if(ba_itr != m_results.end()) {
+                    strstr << " -> found.";
+                    emit(setPixmapWithByteArray(ba_itr->second));
+                    m_results.erase(ba_itr);
+                    ++m_next_id;
                 }
                 else {
-                    send(m_printer, "Received empty image.");
+                    strstr << " -> picture not calculated yet.";
                 }
-                send(m_printer, "Set image");
+                send(m_printer, strstr.str());
+            },
+            on(atom("enqueue")) >> [=] {
+                reply(atom("init"), atom("assign"), m_width, m_height, m_min_re_shifting, m_max_re_shifting, m_min_im_shifting, m_max_im_shifting, m_iterations, m_assign_id);
+                m_assignments[m_assign_id] = last_sender();
+                stringstream strstr;
+                double step = m_zoom_steps[m_zoom_idx];
+                strstr << "Worker enqueued, sent assingment with id: " << m_assign_id << "."
+                       << " Current zoom  (" << m_zoom_idx << "): " << step << endl;
+                auto old_re = m_max_re_shifting;
+//                auto old_im = m_min_im_shifting;
+                m_min_re_shifting = m_min_re * step;
+                m_max_re_shifting = m_max_re * step;
+                m_min_im_shifting = m_min_im * step;
+                m_max_im_shifting = m_min_im_shifting+(m_max_re_shifting-m_min_re_shifting)*m_height/m_width; //m_min_im+(m_max_re-m_min_re)*m_height/m_width;
+                auto shift_re = abs(old_re - m_max_re_shifting)/2*8/10;
+//                auto shift_im = abs(old_im - m_min_im_shifting);
+                m_min_re_shifting += shift_re;
+                m_max_re_shifting += shift_re;
+//                m_min_im_shifting -= shift_im;
+//                m_max_im_shifting -= shift_im;
+                m_re_factor = (m_max_re_shifting-m_min_re_shifting)/(m_width-1);
+                m_im_factor = (m_max_im_shifting-m_min_im_shifting)/(m_height-1);
+                ++m_assign_id;
+                ++m_zoom_idx;
+                if(m_zoom_idx == m_zoom_steps.size()) {
+                    m_zoom_idx = 0;
+                }
+                send(m_printer, strstr.str());
+            },
+            on(atom("result"), arg_match) >> [=](uint32_t id, QByteArray ba) {
+                auto itr = m_assignments.find(id);
+                if(itr != m_assignments.end()) {
+                    m_assignments.erase(itr);
+                }
+                stringstream strstr;
+                if(ba.size() > 0) {
+                    strstr << "Received image with id: " << id << ".";
+                    m_results[id] = ba;
+                }
+                else {
+                    m_missing_ids.insert(id);
+                    strstr << "Received empty image witt id " << id << ".";
+                }
+                send(m_printer, strstr.str());
+                send(self, atom("next"));
             },
             on(atom("quit")) >> [=]() {
                 quit();
@@ -64,20 +105,28 @@ void server::init() {
             on(atom("connect")) >> [=] {
                 link_to(last_sender());
             },
-            on(atom("DOWN"), exit_reason::normal) >> [=]() {
-                send(m_printer, "Worker disconnected.");
-            },
-            on(atom("DOWN"), arg_match) >> [=](std::uint32_t err) {
-                stringstream strstr;
-                strstr << "[!!!] Worker disconnectd: " << err << endl;
-                send(m_printer, strstr.str());
-            },
-            on(atom("EXIT"), exit_reason::normal) >> [=]() {
-                send(m_printer, "Worker disconnected.");
-            },
             on(atom("EXIT"), arg_match) >> [=](std::uint32_t err) {
                 stringstream strstr;
                 strstr << "[!!!] Worker disconnectd: " << err << endl;
+                auto sender = last_sender();
+                auto itr = find_if(begin(m_assignments), end(m_assignments), [&](const map<int, cppa::actor_ptr>::value_type& kvp) {
+                    return kvp.second == sender;
+                });
+                if(itr != m_assignments.end()) {
+                    auto id = itr->first;
+                    strstr << " Was working on assignment: " << id << ".";
+                    m_assignments.erase(itr);
+                    m_missing_ids.insert(id);
+                }
+                send(m_printer, strstr.str());
+                send(self, atom("next"));
+            },
+            on(atom("init")) >> [=] {
+                for(int i = 0; i < m_max_zoom_steps; ++i) {
+                    m_zoom_steps.push_back(pow(0.9, i));
+                }
+                stringstream strstr;
+                strstr << "Initilized zoom steps, added " << m_zoom_steps.size() << " steps.";
                 send(m_printer, strstr.str());
             },
             on(atom("config")) >> [=] {
@@ -116,14 +165,17 @@ void server::init() {
             },
             others() >> [=]() {
                 cout << "[!!!] unexpected message: '" << to_string(last_dequeued()) << "'." << endl;
+            },
+            after(chrono::seconds(5)) >> [=]{
+                send(this, atom("next"));
             }
         );
 }
 
-server::server(actor_ptr printer, int width, int height, double min_real, double max_real, double min_imag, int iterations, ImageLabel* lbl)
+server::server(actor_ptr printer, uint32_t width, uint32_t height, double min_real, double max_real, double min_imag, uint32_t iterations, ImageLabel* lbl)
         : m_printer(printer),
-          m_id(0),
-          m_done(false),
+          m_assign_id(0),
+          m_next_id(0),
           m_power(2,0),
           m_constant(2,0),
           m_width(width),
@@ -134,12 +186,19 @@ server::server(actor_ptr printer, int width, int height, double min_real, double
           m_max_im(min_imag+(max_real-min_real)*m_height/m_width),
           m_re_factor((m_max_re-m_min_re)/(m_width-1)),
           m_im_factor((m_max_im-m_min_im)/(m_height-1)),
-          m_iterations(iterations)
+          m_iterations(iterations),
+          m_real_mult(1.0),
+          m_imag_mult(1.0),
+          m_min_re_shifting(m_min_re),
+          m_max_re_shifting(m_max_re),
+          m_min_im_shifting(m_min_im),
+          m_max_im_shifting(m_max_im),
+          m_zoom_idx(0),
+          m_max_zoom_steps(50)
     {
         connect(this, SIGNAL(setPixmapWithByteArray(QByteArray)),
                 lbl, SLOT(setPixmapFromByteArray(QByteArray)),
                 Qt::QueuedConnection);
-        send(self, atom("config"));
     }
 
 server::~server() { }
@@ -217,12 +276,12 @@ auto main(int argc, char* argv[]) -> int {
         port = (rand()%(static_cast<int>(numeric_limits<uint16_t>::max()) - 1024))+1024;
     }
 
-    int    width      =  1920;
-    int    height     =  1200;
-    double min_real   =  -2.0; //  2.0
-    double max_real   =   1.0; //  1.0
-    double min_imag   =  -1.0; // -1.2
-    int iterations    =    50;
+    uint32_t width      =  1920;
+    uint32_t height     =  1200;
+    double   min_real   =  -1.9; //  2.0
+    double   max_real   =   1.0; //  1.0
+    double   min_imag   =  -0.9; // -1.2
+    uint32_t iterations =    50;
 
     QApplication app(argc, argv);
     QWidget window;
@@ -230,6 +289,9 @@ auto main(int argc, char* argv[]) -> int {
     main.setupUi(&window);
 
     auto server_actor = spawn<server>(printer, width, height, min_real, max_real, min_imag, iterations, main.imgLabel);
+
+    send(server_actor, atom("init"));
+    send(server_actor, atom("config"));
 
     try {
         publish(server_actor, port);

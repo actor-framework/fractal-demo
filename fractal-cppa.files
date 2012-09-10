@@ -6,3 +6,5 @@ hdr/fractal_cppa.hpp
 hdr/imagelabel.h
 hdr/q_byte_array_info.hpp
 hdr/server.hpp
+hdr/mainwidget.hpp
+src/mainwidget.cpp

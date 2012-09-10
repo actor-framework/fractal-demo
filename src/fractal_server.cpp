@@ -20,8 +20,8 @@
 #include "cppa/match.hpp"
 
 #include "ui_main.h"
-
 #include "server.hpp"
+#include "mainwidget.hpp"
 #include "fractal_cppa.hpp"
 #include "q_byte_array_info.hpp"
 
@@ -60,7 +60,7 @@ void server::init() {
                 stringstream strstr;
                 double step = m_zoom_steps[m_zoom_idx];
                 strstr << "Worker enqueued, sent assingment with id: " << m_assign_id << "."
-                       << " Current zoom  (" << m_zoom_idx << "): " << step << endl;
+                       << " Current zoom  (" << m_zoom_idx << "): " << step << ".";
                 auto old_re = m_max_re_shifting;
 //                auto old_im = m_min_im_shifting;
                 m_min_re_shifting = m_min_re * step;
@@ -99,6 +99,13 @@ void server::init() {
                 send(m_printer, strstr.str());
                 send(self, atom("next"));
             },
+            on(atom("resize"), arg_match) >> [=](int width, int height) {
+                stringstream strstr;
+                strstr << "Received new width: " << width << " and hew height: " << height;
+                m_width = width;
+                m_height = height;
+                send(m_printer, strstr.str());
+            },
             on(atom("quit")) >> [=]() {
                 quit();
             },
@@ -122,7 +129,7 @@ void server::init() {
                 send(self, atom("next"));
             },
             on(atom("init")) >> [=] {
-                for(int i = 0; i < m_max_zoom_steps; ++i) {
+                for(uint32_t i = 0; i < m_max_zoom_steps; ++i) {
                     m_zoom_steps.push_back(pow(0.9, i));
                 }
                 stringstream strstr;
@@ -172,7 +179,7 @@ void server::init() {
         );
 }
 
-server::server(actor_ptr printer, uint32_t width, uint32_t height, double min_real, double max_real, double min_imag, uint32_t iterations, ImageLabel* lbl)
+server::server(actor_ptr printer, uint32_t width, uint32_t height, double min_real, double max_real, double min_imag, uint32_t iterations, ImageLabel* lbl, MainWidget* mw)
         : m_printer(printer),
           m_assign_id(0),
           m_next_id(0),
@@ -199,6 +206,7 @@ server::server(actor_ptr printer, uint32_t width, uint32_t height, double min_re
         connect(this, SIGNAL(setPixmapWithByteArray(QByteArray)),
                 lbl, SLOT(setPixmapFromByteArray(QByteArray)),
                 Qt::QueuedConnection);
+        mw->setServer(this);
     }
 
 server::~server() { }
@@ -288,7 +296,7 @@ auto main(int argc, char* argv[]) -> int {
     Ui::Main main;
     main.setupUi(&window);
 
-    auto server_actor = spawn<server>(printer, width, height, min_real, max_real, min_imag, iterations, main.imgLabel);
+    auto server_actor = spawn<server>(printer, width, height, min_real, max_real, min_imag, iterations, main.imgLabel, main.widget);
 
     send(server_actor, atom("init"));
     send(server_actor, atom("config"));
@@ -304,7 +312,7 @@ auto main(int argc, char* argv[]) -> int {
         send(printer, strstr.str());
     }
 
-    window.setWindowState(Qt::WindowFullScreen);
+//    window.setWindowState(Qt::WindowFullScreen);
     window.show();
     app.quitOnLastWindowClosed();
     app.exec();

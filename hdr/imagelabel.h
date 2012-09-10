@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QLabel>
 #include <QWidget>
+#include <QResizeEvent>
 
 class ImageLabel : public QLabel {
 

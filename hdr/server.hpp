@@ -13,6 +13,7 @@
 #include "cppa/cppa.hpp"
 
 #include "imagelabel.h"
+#include "mainwidget.hpp"
 #include "fractal_cppa.hpp"
 
 class server : public QObject, public cppa::event_based_actor {
@@ -33,8 +34,8 @@ class server : public QObject, public cppa::event_based_actor {
     complex_d m_power;
     complex_d m_constant;
 
-    const uint32_t m_width;
-    const uint32_t m_height;
+    uint32_t m_width;
+    uint32_t m_height;
 
     const double m_min_re;
     const double m_max_re;
@@ -66,7 +67,7 @@ class server : public QObject, public cppa::event_based_actor {
 
  public:
 
-    server(cppa::actor_ptr printer, uint32_t width, uint32_t height, double min_real, double max_real, double min_imag, uint32_t iterations, ImageLabel* lbl);
+    server(cppa::actor_ptr printer, uint32_t width, uint32_t height, double min_real, double max_real, double min_imag, uint32_t iterations, ImageLabel* lbl, MainWidget *mw);
 
     virtual ~server();
 

@@ -1,4 +1,4 @@
-#include "hdr/q_byte_array_info.hpp"
+#include "q_byte_array_info.hpp"
 
 using namespace std;
 using namespace cppa;

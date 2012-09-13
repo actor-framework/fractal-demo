@@ -8,6 +8,9 @@
 class MainWidget : public QWidget
 {
     Q_OBJECT
+ public slots:
+
+    void jumpTo();
 
  public:
 

@@ -113,7 +113,7 @@ QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} hdr/server.hpp hdr/imag
 INCLUDE_DIRECTORIES(. hdr ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE})
 
 macro(add_exec name)
-    add_executable(${name} ./src/${name}.cpp ./src/q_byte_array_info.cpp ${ARGN})
+    add_executable(${name} ./src/${name}.cpp ./src/q_byte_array_info.cpp ./src/long_double_info.cpp ${ARGN})
     target_link_libraries(${name} ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES})
     add_dependencies(${name} all_examples)
 endmacro()

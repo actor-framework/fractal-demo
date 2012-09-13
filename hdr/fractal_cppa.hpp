@@ -18,12 +18,12 @@
 #include "cppa/cppa.hpp"
 #include "cppa/match.hpp"
 
-typedef std::complex<double> complex_d;
+typedef std::complex<long double> complex_d;
 
-typedef double (complex_d::*complex_getter)() const;
-typedef void   (complex_d::*complex_setter)(double);
+typedef long double (complex_d::*complex_getter)() const;
+typedef void   (complex_d::*complex_setter)(long double);
 
-static const double FRACTAL_PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
+static const long double FRACTAL_PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
 
 inline cppa::actor_ptr spawn_printer() {
     using namespace std;

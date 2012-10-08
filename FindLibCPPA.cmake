@@ -22,6 +22,8 @@ else (CPPA_LIBRARY AND CPPA_INCLUDE)
       ${CPPA_LIBRARY_PATH}
       ${CMAKE_INCLUDE_PATH}
       ${CMAKE_INSTALL_PREFIX}/include
+      ${CPPA_ROOT}/include
+      ${CPPA_ROOT}/libcppa
   )
   
   if (CPPA_INCLUDE) 
@@ -29,6 +31,12 @@ else (CPPA_LIBRARY AND CPPA_INCLUDE)
   else (CPPA_INCLUDE)
     message (SEND_ERROR "Header files NOT found. Provide absolute path with -DCPPA_INCLUDE_PATH=<path-to-header>.")
   endif (CPPA_INCLUDE)
+
+  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+    set(CPPA_BUILD_DIR build-gcc)
+  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    set(CPPA_BUILD_DIR build-clang)
+  endif ()
 
   find_library(CPPA_LIBRARY
     NAMES
@@ -40,12 +48,15 @@ else (CPPA_LIBRARY AND CPPA_INCLUDE)
       /opt/local/lib
       /sw/lib
       ${CPPA_INCLUDE_PATH}
-      ${CPPA_INCLUDE_PATH}/.libs
       ${CPPA_LIBRARY_PATH}
-      ${CPPA_LIBRARY_PATH}/.libs
       ${CMAKE_LIBRARY_PATH}
       ${CMAKE_INSTALL_PREFIX}/lib
       ${LIBRARY_OUTPUT_PATH}
+      ${CPPA_ROOT}/lib
+      ${CPPA_ROOT}/build/lib
+      ${CPPA_ROOT}/libcppa/build/lib
+      ${CPPA_ROOT}/${CPPA_BUILD_DIR}/lib
+      ${CPPA_ROOT}/libcppa/${CPPA_BUILD_DIR}/lib
   )
 
   if (CPPA_LIBRARY) 

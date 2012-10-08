@@ -81,7 +81,7 @@ if (DISABLE_CONTEXT_SWITCHING)
 endif ()
 
 # find cppa
-find_package(Libcppa REQUIRED)
+find_package(LibCPPA REQUIRED)
 
 # by default only QtCore and QtGui modules are enabled
 # other modules must be enabled like this:

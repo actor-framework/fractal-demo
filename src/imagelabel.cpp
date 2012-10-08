@@ -1,8 +1,10 @@
-#include "imagelabel.h"
 #include <iostream>
+
 #include <QImage>
 #include <QBuffer>
 #include <QPixmap>
+
+#include "imagelabel.h"
 
 using namespace std;
 

@@ -2,7 +2,12 @@ src/fractal_client.cpp
 src/fractal_server.cpp
 src/imagelabel.cpp
 src/q_byte_array_info.cpp
+src/mainwidget.cpp
 hdr/fractal_cppa.hpp
 hdr/imagelabel.h
 hdr/q_byte_array_info.hpp
 hdr/server.hpp
+hdr/mainwidget.hpp
+hdr/client.hpp
+hdr/long_double_info.hpp
+src/long_double_info.cpp

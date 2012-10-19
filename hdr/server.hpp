@@ -23,15 +23,17 @@ typedef std::function<bool (const long double, const long double, const long dou
 typedef std::pair<equation, condition> stack_element;
 
 namespace {
+    const uint32_t TIME_BETWEEN_PICUTRES = 2;
     const uint32_t DEFAULT_WIDTH = 1024;
     const uint32_t DEFAULT_HEIGHT = 768;
     const uint32_t DEFAULT_ITERATIONS = 500;
-    const uint32_t MAX_RESULTS_STORED = 7;
+    const uint32_t MAX_RESULTS_STORED = 12;
     const uint32_t MIN_RESULTS_STORED = 3;
-    const long double DEFAULT_MIN_REAL = -0.95; //-1.9;
-    const long double DEFAULT_MAX_REAL =  0.5;  // 1.0;
-    const long double DEFAULT_MIN_IMAG = -0.45; //-0.9;
+    const long double DEFAULT_MIN_REAL = -1.9; // must be <= 0.0
+    const long double DEFAULT_MAX_REAL =  1.0; // must be >= 0.0
+    const long double DEFAULT_MIN_IMAG = -0.9; // must be <= 0.0
     const long double DEFAULT_MAX_IMAG = DEFAULT_MIN_IMAG+(DEFAULT_MAX_REAL-DEFAULT_MIN_REAL)*DEFAULT_HEIGHT/DEFAULT_WIDTH;
+    const long double DEFAULT_ZOOM_FACTOR = 0.5; // must be <= 0.0
 }
 
 class server : public QObject, public cppa::event_based_actor {
@@ -71,9 +73,14 @@ class server : public QObject, public cppa::event_based_actor {
 
     void initialize_stack();
 
+    void add_start_move(long double from_x, long double from_y, long double to_x, long double to_y, int max_zoom);
+    void add_move_from_to(long double from_x, long double from_y, long double to_x, long double to_y, int max_zoom);
+    void add_end_move(long double from_x, long double from_y, long double to_x, long double to_y);
+    void add_chain(std::vector<std::pair<long double, long double> >& chain, int zoom);
+
  public:
 
-    server(cppa::actor_ptr printer, ImageLabel* lbl, MainWidget *mw);
+    server(/*cppa::actor_ptr printer, */ ImageLabel* lbl, MainWidget *mw);
 
     virtual ~server();
 

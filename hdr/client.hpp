@@ -16,6 +16,7 @@ class client : public cppa::event_based_actor {
     cppa::actor_ptr m_printer;
     bool m_connected;
     uint32_t m_client_id;
+    std::string m_prefix;
 
     uint32_t m_iterations;
 

@@ -31,27 +31,33 @@ void client::init() {
             send(m_printer, strstr.str());
         },
         on(atom("next")) >> [=] {
-            stringstream strstr;
-            strstr << "[" << m_client_id << "] ";
             if(m_connected) {
-                strstr << "Applying for work.";
-                send(m_server, atom("enqueue"));
+                sync_send(m_server, atom("enqueue")).then(
+                    on(atom("ack"), atom("enqueue")) >> [=] {
+                        send(m_printer, m_prefix + "Enqueued for work.");
+                    },
+                    after(chrono::seconds(3)) >> [=] {
+                        send(m_printer, m_prefix + "Failed to equeue for new work. Will try again in 3 seconds.");
+                        delayed_send(self, chrono::seconds(3), atom("next"));
+                    }
+                );
             }
             else {
-                strstr << "Not connected to server.";
+                send(m_printer, m_prefix + "Not connected to server.");
             }
-            send(m_printer, strstr.str());
         },
         on(atom("quit")) >> [=]() {
             quit();
         },
         on(atom("init"), atom("assign"), arg_match) >> [=](uint32_t width, uint32_t height, long double min_re, long double max_re, long double min_im, long double max_im, uint32_t iterations, uint32_t id) {
             stringstream strstr;
-            strstr << "[" << m_client_id << "] Received assignment, id: " << id <<".";
+            strstr << m_prefix << "Received assignment, id: " << id <<".";
+            send(m_printer, strstr.str());
+//            reply(atom("ack"), atom("init"), atom("assign"));
             auto re_factor = (max_re-min_re)/(width-1);
             auto im_factor = (max_im-min_im)/(height-1);
             if(iterations != m_iterations) {
-                strstr << " Generating new colors.";
+                send(m_printer, m_prefix + "Generating new colors.");
                 m_iterations = iterations;
                 m_palette.clear();
                 m_palette.reserve(m_iterations+1);
@@ -62,7 +68,6 @@ void client::init() {
                 }
                 m_palette.push_back(QColor(qRgb(0,0,0)));
             }
-            send(m_printer, strstr.str());
             QImage image(width, height, QImage::Format_RGB32);
             for(int y = height-1; y >= 0; --y) {
                 for(uint32_t x = 0; x < width; ++x) {
@@ -84,29 +89,44 @@ void client::init() {
             buf.open(QIODevice::WriteOnly);
             image.save(&buf,"BMP");
             buf.close();
-            reply(atom("result"), id, ba);
+            stringstream sts;
+            sts << m_prefix << "Sending image, id: " << id << ".";
+            send(m_printer, sts.str());
+//            send(m_printer, m_prefix + "Sending image to server.");
+            send(m_server, atom("result"), id, ba);
             send(this, atom("next"));
         },
         on(atom("connect"), arg_match) >> [=](const string& host, uint16_t port) {
-            stringstream strstr;
-            strstr << "[" << m_client_id << "] ";
             if(m_connected) {
-                strstr << "You can only be connected to one server at a time!";
+                send(m_printer, m_prefix + "You can only be connected to one server at a time!");
             }
             else {
                 try {
-                    strstr << "Connecting to a server at '" << host << ":" << port << "'.";
+                    stringstream strstr;
+                    strstr << m_prefix
+                           << "Connecting to a server at '"
+                           << host << ":" << port << "'.";
+                    send(m_printer, strstr.str());
                     auto new_server = remote_actor(host, port);
                     m_server = new_server;
                     m_connected = true;
-                    strstr << " Connection established.";
-                    send(m_server, atom("connect"));
+                    sync_send(m_server, atom("connect")).then(
+                        on(atom("ack"), atom("connect")) >> [=] {
+                            link_to(last_sender());
+                            send(m_printer, m_prefix + "Connection established.");
+                        },
+                        after(chrono::seconds(10)) >> [=] {
+                            send(m_printer, m_prefix + "Could not connect to server. Will ry again in 3 seconds.");
+                            delayed_send(self, chrono::seconds(3), atom("connect"), host, port);
+                        }
+                    );
                 }
                 catch (network_error exc) {
-                    strstr << "Could not connect: " << exc.what();
+                    stringstream strstr;
+                    strstr << m_prefix << "Exception: " << exc.what();
+                    send(m_printer, strstr.str());
                 }
             }
-            send(m_printer, strstr.str());
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t err) {
             stringstream strstr;
@@ -122,7 +142,11 @@ void client::init() {
     );
 }
 
-client::client(actor_ptr printer, uint32_t client_id) : m_printer(printer), m_connected(false), m_client_id(client_id) { }
+client::client(actor_ptr printer, uint32_t client_id) : m_printer(printer), m_connected(false), m_client_id(client_id) {
+    stringstream strstr;
+    strstr << "[" << m_client_id << "] ";
+    m_prefix = move(strstr.str());
+}
 
 void print_usage(actor_ptr printer) {
     send(printer, "Usage: fractal_client\n -h, --host=\t\tserver host\n -p, --port=\t\tserver port\n -a, --actors=\t\tnumber of actors\n");
@@ -247,11 +271,11 @@ auto main(int argc, char* argv[]) -> int {
                         send(a, atom("ping"));
                     }
                 },
-                on("next") >> [&] {
-                    for(auto& a : running_actors) {
-                        send(a, atom("next"));
-                    }
-                },
+//                on("next") >> [&] {
+//                    for(auto& a : running_actors) {
+//                        send(a, atom("next"));
+//                    }
+//                },
                 others() >> [&] {
                     send(printer, "available commands:\n /connect HOST PORT\n /quit");
                 }

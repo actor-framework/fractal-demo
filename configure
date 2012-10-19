@@ -38,12 +38,9 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
                                 (always sets --build-type=Debug)
     --enable-perftools          use Google perftools
 
-  Platform-Dependent Adjustments:
-    --disable-context-switching compile libcppa without context-switching actors
-                                on platforms where Boost.Context is not available
-
   Required Packages in Non-Standard Locations:
     --with-boost=PATH           path to Boost install root
+    --with-libcppa=PATH         path to libcppa install root
 
   Influential Environment Variables (only on first invocation
   per build directory):
@@ -147,11 +144,11 @@ while [ $# -ne 0 ]; do
         --enable-debug)
             append_cache_entry ENABLE_DEBUG BOOL true
             ;;
-        --disable-context-switching)
-            append_cache_entry DISABLE_CONTEXT_SWITCHING BOOL true
-            ;;
         --with-boost=*)
             append_cache_entry BOOST_ROOT PATH $optarg
+            ;;
+        --with-libcppa=*)
+            append_cache_entry CPPA_ROOT PATH $optarg
             ;;
         --with-clang=*)
             clang=$optarg

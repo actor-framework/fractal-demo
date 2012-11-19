@@ -11,6 +11,7 @@ set( FRACTAL_CPPA_SRCS
      ./src/farctal_client.cpp
      ./src/imagelabel.cpp
      ./src/mainwidget.cpp
+     ./src/config_map.cpp
     )
 set( FRACTAL_CPPA_HDRS)
 set( FRACTAL_CPPA_UIS main.ui )
@@ -84,6 +85,9 @@ endif ()
 # find cppa
 find_package(LibCPPA REQUIRED)
 
+# find boost
+find_package (Boost COMPONENTS regex REQUIRED)
+
 # by default only QtCore and QtGui modules are enabled
 # other modules must be enabled like this:
 #SET( QT_USE_QT3SUPPORT TRUE )   
@@ -105,18 +109,18 @@ QT4_ADD_RESOURCES( FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} )
 QT4_WRAP_UI( FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS} )
 
 # and finally this will run moc:
-QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} hdr/server.hpp hdr/imagelabel.h hdr/mainwidget.hpp)
+QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} hdr/fractal_server.hpp hdr/imagelabel.h hdr/mainwidget.hpp)
 
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH 
 # from qmake)
-INCLUDE_DIRECTORIES(. hdr ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE})
+INCLUDE_DIRECTORIES(. hdr ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE} ${Boost_INCLUDE_DIRS})
 
 macro(add_exec name)
     add_executable(${name} ./src/${name}.cpp ./src/q_byte_array_info.cpp ./src/long_double_info.cpp ${ARGN})
-    target_link_libraries(${name} ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES})
+    target_link_libraries(${name} ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES} ${Boost_REGEX_LIBRARY})
     add_dependencies(${name} all_examples)
 endmacro()
 
 add_exec(fractal_client)
-add_exec(fractal_server src/imagelabel.cpp src/mainwidget.cpp ${FRACTAL_CPPA_MOC_SRCS} ${FRACTAL_CPPA_RC_SRCS} ${FRACTAL_CPPA_UI_HDRS})
+add_exec(fractal_server src/imagelabel.cpp src/mainwidget.cpp src/config_map.cpp ${FRACTAL_CPPA_MOC_SRCS} ${FRACTAL_CPPA_RC_SRCS} ${FRACTAL_CPPA_UI_HDRS})

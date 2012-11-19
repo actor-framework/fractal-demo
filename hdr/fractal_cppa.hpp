@@ -23,8 +23,6 @@ typedef std::complex<long double> complex_d;
 typedef long double (complex_d::*complex_getter)() const;
 typedef void   (complex_d::*complex_setter)(long double);
 
-static const long double FRACTAL_PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
-
 inline cppa::actor_ptr spawn_printer() {
     using namespace std;
     using namespace cppa;
@@ -57,13 +55,6 @@ inline std::vector<std::string> split(const std::string& str, char delim) {
     std::string tmp;
     while (std::getline(strs, tmp, delim)) result.push_back(tmp);
     return result;
-}
-
-template<typename T>
-auto conv(const std::string& str) -> cppa::option<T> {
-    T result;
-    if (std::istringstream(str) >> result) return result;
-    return {};
 }
 
 inline std::function<cppa::option<std::string> (const std::string&)> get_extractor(const std::string& identifier) {

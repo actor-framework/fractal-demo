@@ -1,0 +1,5 @@
+[fractals]
+interval=2000
+iterations=500
+queuesize=15
+;zoom=0.5

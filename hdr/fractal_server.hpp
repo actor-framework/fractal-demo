@@ -18,23 +18,6 @@
 #include "fractal_cppa.hpp"
 
 typedef std::tuple<long double, long double, long double, long double> ld_tuple;
-typedef std::function<ld_tuple (long double, long double, long double, long double)> equation;
-typedef std::function<bool (const long double, const long double, const long double, const long double)> condition;
-typedef std::pair<equation, condition> stack_element;
-
-namespace {
-    const uint32_t TIME_BETWEEN_PICUTRES = 2;
-    const uint32_t DEFAULT_WIDTH = 1024;
-    const uint32_t DEFAULT_HEIGHT = 768;
-    const uint32_t DEFAULT_ITERATIONS = 500;
-    const uint32_t MAX_RESULTS_STORED = 12;
-    const uint32_t MIN_RESULTS_STORED = 3;
-    const long double DEFAULT_MIN_REAL = -1.9; // must be <= 0.0
-    const long double DEFAULT_MAX_REAL =  1.0; // must be >= 0.0
-    const long double DEFAULT_MIN_IMAG = -0.9; // must be <= 0.0
-    const long double DEFAULT_MAX_IMAG = DEFAULT_MIN_IMAG+(DEFAULT_MAX_REAL-DEFAULT_MIN_REAL)*DEFAULT_HEIGHT/DEFAULT_WIDTH;
-    const long double DEFAULT_ZOOM_FACTOR = 0.5; // must be <= 0.0
-}
 
 class server : public QObject, public cppa::event_based_actor {
 
@@ -44,6 +27,15 @@ class server : public QObject, public cppa::event_based_actor {
     void setPixmapWithByteArray(QByteArray);
 
  private:
+
+    typedef std::function<ld_tuple (long double, long double, long double, long double)> equation;
+    typedef std::function<bool (const long double, const long double, const long double, const long double)> condition;
+    typedef std::pair<equation, condition> stack_element;
+
+    uint32_t m_interval; // in msecs
+    uint32_t m_iterations;
+    uint32_t m_queuesize;
+    double m_zoom;
 
     std::vector<cppa::actor_ptr> m_available_workers;
     const cppa::actor_ptr m_printer;
@@ -60,8 +52,6 @@ class server : public QObject, public cppa::event_based_actor {
     long double m_max_re;
     long double m_min_im;
     long double m_max_im;
-
-    uint32_t m_iterations;
 
     std::map<uint32_t, cppa::actor_ptr> m_assignments;
     std::map<uint32_t, QByteArray> m_results;
@@ -80,7 +70,7 @@ class server : public QObject, public cppa::event_based_actor {
 
  public:
 
-    server(/*cppa::actor_ptr printer, */ ImageLabel* lbl, MainWidget *mw);
+    server(uint32_t interval, uint32_t iterations, uint32_t queuesize, double zoom, ImageLabel* lbl, MainWidget *mw);
 
     virtual ~server();
 

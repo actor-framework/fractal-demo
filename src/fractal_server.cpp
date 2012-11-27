@@ -291,6 +291,7 @@ void server::add_chain(std::vector<std::pair<long double, long double> >& chain,
 
 void server::init() {
     trap_exit(true);
+    send(m_gui, atom("server"), this);
     delayed_send(self, chrono::milliseconds(m_interval), atom("next"));
     become (
         on(atom("enqueue")) >> [=] {
@@ -311,7 +312,8 @@ void server::init() {
             auto ba_itr = m_results.find(m_next_id);
             if (ba_itr != m_results.end()) {
                 cout << ", found." << endl;
-                emit(setPixmapWithByteArray(ba_itr->second));
+                send(m_gui, atom("display"), ba_itr->second);
+//                emit(setPixmapWithByteArray(ba_itr->second));
                 m_results.erase(ba_itr);
                 ++m_next_id;
             }
@@ -421,8 +423,9 @@ void server::init() {
     );
 }
 
-server::server(uint32_t interval, uint32_t iterations, uint32_t queuesize, double zoom, ImageLabel* lbl, MainWidget* mw)
-    : m_interval{interval},
+server::server(const cppa::actor_ptr& gui, uint32_t interval, uint32_t iterations, uint32_t queuesize, double zoom)
+    : m_gui(gui),
+      m_interval{interval},
       m_iterations{iterations},
       m_queuesize{queuesize},
       m_zoom{zoom},
@@ -436,10 +439,6 @@ server::server(uint32_t interval, uint32_t iterations, uint32_t queuesize, doubl
       m_min_im{0},
       m_max_im{0}
     {
-        connect(this, SIGNAL(setPixmapWithByteArray(QByteArray)),
-                lbl, SLOT(setPixmapFromByteArray(QByteArray)),
-                Qt::QueuedConnection);
-        mw->setServer(this);
         cout << "Initializing operations stack." << endl;
         initialize_stack();
 //            vector<pair<long double, long double> > chain {make_pair(-1.86572513851221765677, 0.0)};
@@ -495,11 +494,11 @@ auto main(int argc, char* argv[]) -> int {
     QMainWindow window;
     Ui::Main main;
     main.setupUi(&window);
-
+    auto gui = main.mainWidget->as_actor();
+    send(gui, atom("main"), main);
+//    send(gui, atom("imagelabel"), main.imgLabel);
     cout << "interval: " << interval << "\niterations: " << iterations << "\nqueuesize: " << queuesize << "\nzoom: " << zoom << endl;
-
-    auto server_actor = spawn<server>(interval, iterations, queuesize, zoom, main.imgLabel, main.mainWidget);
-
+    auto server_actor = spawn<server>(gui, interval, iterations, queuesize, zoom);
     try {
         publish(server_actor, port);
         cout << "Now running on port: '" << port << "'." << endl;

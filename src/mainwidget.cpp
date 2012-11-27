@@ -5,15 +5,28 @@
 
 #include "cppa/cppa.hpp"
 
-MainWidget::MainWidget(QWidget *parent) :
-    QWidget(parent), m_has_server(false)
+#include "ui_main.h"
+
+using namespace cppa;
+
+MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
+    super(parent, f), m_has_server(false)
 {
-}
-
-
-void MainWidget::setServer(cppa::actor_ptr server) {
-    m_server = server;
-    m_has_server = true;
+    set_message_handler (
+        on(atom("main"), arg_match) >> [=] (Ui::Main& main) {
+            m_imagelabel = main.imgLabel;
+        },
+//        on(atom("imagelabel"), arg_match) >> [=](ImageLabel *imagelabel) {
+//            m_imagelabel = imagelabel;
+//        },
+        on(atom("server"), arg_match) >> [=](const actor_ptr& server) {
+            m_server = server;
+            m_has_server = true;
+        },
+        on(atom("display"), arg_match) >> [=](const QByteArray& ba) {
+            m_imagelabel->setPixmapFromByteArray(ba);
+        }
+    );
 }
 
 void MainWidget::resizeEvent(QResizeEvent *event) {

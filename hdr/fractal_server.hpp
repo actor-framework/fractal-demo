@@ -19,18 +19,15 @@
 
 typedef std::tuple<long double, long double, long double, long double> ld_tuple;
 
-class server : public QObject, public cppa::event_based_actor {
-
-    Q_OBJECT
-
- signals:
-    void setPixmapWithByteArray(QByteArray);
+class server : public cppa::event_based_actor {
 
  private:
 
     typedef std::function<ld_tuple (long double, long double, long double, long double)> equation;
     typedef std::function<bool (const long double, const long double, const long double, const long double)> condition;
     typedef std::pair<equation, condition> stack_element;
+
+    cppa::actor_ptr m_gui;
 
     uint32_t m_interval; // in msecs
     uint32_t m_iterations;
@@ -70,7 +67,7 @@ class server : public QObject, public cppa::event_based_actor {
 
  public:
 
-    server(uint32_t interval, uint32_t iterations, uint32_t queuesize, double zoom, ImageLabel* lbl, MainWidget *mw);
+    server(const cppa::actor_ptr& m_gui, uint32_t interval, uint32_t iterations, uint32_t queuesize, double zoom);
 
     virtual ~server();
 

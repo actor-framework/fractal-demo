@@ -27,6 +27,17 @@ class MainWidget : public cppa::actor_widget_mixin<QWidget>
 
     typedef cppa::actor_widget_mixin<QWidget> super;
 
+    template<typename T>
+    T* get(T*& member, const char* name) {
+        if (member == nullptr) {
+            member = findChild<T*>(name);
+            if (member == nullptr)
+                throw std::runtime_error("unable to find child: "
+                                         + std::string(name));
+        }
+        return member;
+    }
+
     bool m_has_server;
     cppa::actor_ptr m_server;
     ImageLabel *m_imagelabel;

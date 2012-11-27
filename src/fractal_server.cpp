@@ -495,7 +495,7 @@ auto main(int argc, char* argv[]) -> int {
     Ui::Main main;
     main.setupUi(&window);
     auto gui = main.mainWidget->as_actor();
-    send(gui, atom("main"), main);
+//    send(gui, atom("main"), main);
 //    send(gui, atom("imagelabel"), main.imgLabel);
     cout << "interval: " << interval << "\niterations: " << iterations << "\nqueuesize: " << queuesize << "\nzoom: " << zoom << endl;
     auto server_actor = spawn<server>(gui, interval, iterations, queuesize, zoom);

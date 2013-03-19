@@ -36,20 +36,24 @@ class config_map
         return m_data.find(group);
     }
 
-    inline const key_type& get(const_iterator group, const key_type& key) const {
+    inline const key_type& get(const_iterator group,
+                               const key_type& key) const {
         mapped_type::const_iterator j = group->second.find(key);
         if (j != group->second.end()) return j->second;
         return m_empty;
     }
 
-    inline const key_type& get(const key_type& group, const key_type& key) const {
+    inline const key_type& get(const key_type& group,
+                               const key_type& key) const {
         container_type::const_iterator i = m_data.find(group);
         if (i != m_data.end()) return get(i, key);
         return m_empty;
     }
 
     template<typename T>
-    inline T get_or_else(const key_type& group, const key_type& key, const T& default_value) const {
+    inline T get_or_else(const key_type& group,
+                         const key_type& key,
+                         const T& default_value) const {
         auto& str = get(group, key);
         if (!str.empty()) {
             auto tmp = projection<T>(str);
@@ -65,7 +69,8 @@ class config_map
      */
     inline const mapped_type& operator[](const key_type& group) const {
         container_type::const_iterator i = m_data.find(group);
-        if (i == m_data.end()) throw std::range_error("unknown group: " + group);
+        if (i == m_data.end())
+            throw std::range_error("unknown group: " + group);
         return i->second;
     }
 

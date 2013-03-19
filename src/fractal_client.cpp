@@ -18,33 +18,65 @@
 #include "fractal_client.hpp"
 #include "q_byte_array_info.hpp"
 
-using namespace cppa;
 using namespace std;
+using namespace cppa;
 
-void print_(ostream&) { }
+#define STRINGIFY(A) #A
+std::string kernel_source = STRINGIFY(
+__kernel void mandelbrot(__global float* config,
+                         __global int* output)
+{
+    unsigned iterations = config[0];
+    unsigned width = config[1];
+    unsigned height = config[2];
 
-template<typename Arg0, typename... Args>
-void print_(ostream& out, Arg0&& arg1, Args&&... args) {
-    print_(out << forward<Arg0>(arg1), forward<Args>(args)...);
+    float min_re = config[3];
+    float max_re = config[4];
+    float min_im = config[5];
+    float max_im = config[6];
+
+    float re_factor = (max_re-min_re)/(width-1);
+    float im_factor = (max_im-min_im)/(height-1);
+
+    unsigned x = get_global_id(0);
+    unsigned y = get_global_id(1);
+    float z_re = min_re + x*re_factor;
+    float z_im = max_im - y*im_factor;
+    float const_re = z_re;
+    float const_im = z_im;
+    unsigned cnt = 0;
+    float cond = 0;
+    do {
+        float tmp_re = z_re;
+        float tmp_im = z_im;
+        z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) + const_re;
+        z_im = ( 2 * tmp_re * tmp_im ) + const_im;
+        cond = z_re*z_re + z_im*z_im;
+        cnt ++;
+    } while (cnt < iterations && cond <= 4.0f);
+    output[x+y*width] = cnt;
 }
+);
 
-template<typename... Args>
-void print(const actor_ptr printer, Args&&... args) {
-    stringstream out;
-    print_(out, forward<Args>(args)...);
-    send(printer, out.str());
+void send_result_to(actor_ptr server, QImage &image, unsigned id) {
+    QByteArray ba;
+    QBuffer buf{&ba};
+    buf.open(QIODevice::WriteOnly);
+    image.save(&buf,"BMP");
+    buf.close();
+    send(server, atom("result"), id, ba);
 }
 
 void client::init() {
     become (
         on(atom("next")) >> [=] {
-            send(m_printer, m_prefix+"Let's ask for some work.");
             sync_send(m_server, atom("enqueue")).then(
                 on(atom("ack"), atom("enqueue")) >> [=] {
-                    send(m_printer, m_prefix + "Enqueued for work.");
+                    aout << m_prefix << "Enqueued for work.\n";
                 },
                 after(chrono::minutes(5)) >> [=] {
-                    send(m_printer, m_prefix + "Failed to equeue for new work. Goodbye.");
+                    aout << m_prefix
+                         << "Failed to equeue for new work. Goodbye.\n";
                     quit();
                 }
             );
@@ -52,14 +84,18 @@ void client::init() {
         on(atom("quit")) >> [=]() {
             quit();
         },
-        on(atom("assign"), arg_match) >> [=](uint32_t width, uint32_t height, long double min_re, long double max_re, long double min_im, long double max_im, uint32_t iterations, uint32_t id) {
-            print(m_printer, m_prefix, "Received assignment, id: ", id, ".");
-//            auto re_factor = (max_re-min_re)/(width-1);
-//            auto im_factor = (max_im-min_im)/(height-1);
-            long double re_factor{(max_re-min_re)/(width-1)};
-            long double im_factor{(max_im-min_im)/(height-1)};
+        on(atom("assign"), arg_match) >> [=](uint32_t width,
+                                             uint32_t height,
+                                             long double min_re,
+                                             long double max_re,
+                                             long double min_im,
+                                             long double max_im,
+                                             uint32_t iterations,
+                                             uint32_t id) {
+            aout << m_prefix
+                 << "Received assignment with id '"<< id << "'.\n";
             if (iterations != m_iterations) {
-                send(m_printer, m_prefix + "Generating new colors.");
+                aout << m_prefix << "Generating new colors.\n";
                 m_iterations = iterations;
                 m_palette.clear();
                 m_palette.reserve(m_iterations+1);
@@ -70,46 +106,110 @@ void client::init() {
                 }
                 m_palette.push_back(QColor(qRgb(0,0,0)));
             }
-            QImage image{static_cast<int>(width), static_cast<int>(height), QImage::Format_RGB32};
-            for (int y{static_cast<int>(height)-1}; y >= 0; --y) {
-                for (uint32_t x{0}; x < width; ++x) {
-                    complex_d z{min_re + x * re_factor, max_im - y * im_factor};
-                    const complex_d constant{z};
-                    uint32_t cnt{0};
-                    for (bool done{false}; !done;) {
-                        z = pow(z, 2) + constant;
-                        cnt++;
-                        if (cnt >= iterations || abs(z) > 2 ) {
-                            done = true;
-                        }
-                    };
-                    image.setPixel(x,y,m_palette[cnt].rgb());
+            if(m_with_opencl) {
+                if (   m_current_width != width
+                    || m_current_height != height
+                    || !m_fractal) {
+                    m_fractal = m_disp->spawn<vector<int>,
+                            vector<float>>(m_program,
+                                           "mandelbrot",
+                                           width,
+                                           height);
+                    m_current_width = width;
+                    m_current_height = height;
+                }
+                m_current_id = id;
+                vector<float> config;
+                config.reserve(7);
+                config.push_back(iterations);
+                config.push_back(width);
+                config.push_back(height);
+                config.push_back(min_re);
+                config.push_back(max_re);
+                config.push_back(min_im);
+                config.push_back(max_im);
+                send(m_fractal, std::move(config));
+                aout << m_prefix << "Sent work to opencl kernel.\n";
+            }
+            else {
+                long double re_factor{(max_re-min_re)/(width-1)};
+                long double im_factor{(max_im-min_im)/(height-1)};
+                QImage image{static_cast<int>(width),
+                             static_cast<int>(height),
+                             QImage::Format_RGB32};
+                for (unsigned y{0}; y < height; ++y) {
+                    for (unsigned x{0}; x < width; ++x) {
+//                        complex_d z{min_re + x * re_factor, max_im - y * im_factor};
+//                        const complex_d constant{z};
+//                        uint32_t cnt{0};
+//                        for (bool done{false}; !done;) {
+//                            z = pow(z, 2) + constant;
+//                            cnt++;
+//                            if (cnt >= iterations || abs(z) > 2 ) {
+//                                done = true;
+//                            }
+//                        };
+                        float z_re = min_re + x*re_factor;
+                        float z_im = max_im - y*im_factor;
+                        float const_re = z_re;
+                        float const_im = z_im;
+                        unsigned cnt = 0;
+                        float cond = 0;
+                        do {
+                            float tmp_re = z_re;
+                            float tmp_im = z_im;
+                            z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) + const_re;
+                            z_im = ( 2 * tmp_re * tmp_im ) + const_im;
+                            cond = z_re*z_re + z_im*z_im;
+                            cnt ++;
+                        } while (cnt < iterations && cond <= 4.0f);
+                        image.setPixel(x,y,m_palette[cnt].rgb());
+                    }
+                }
+                send_result_to(m_server, image, id);
+                aout << m_prefix << "Sent image with id '"
+                     << id << "' to server.\n";
+                send(this, atom("next"));
+            }
+        },
+        on_arg_match >> [&](const vector<int>& result) {
+            aout << m_prefix << "Received result from gpu\n";
+            QImage image{static_cast<int>(m_current_width),
+                         static_cast<int>(m_current_height),
+                         QImage::Format_RGB32};
+            for (unsigned y{0}; y < m_current_height; ++y) {
+                for (unsigned x{0}; x < m_current_width; ++x) {
+                    image.setPixel(x,y,m_palette[result[x+y*m_current_width]].rgb());
                 }
             }
-            QByteArray ba;
-            QBuffer buf{&ba};
-            buf.open(QIODevice::WriteOnly);
-            image.save(&buf,"BMP");
-            buf.close();
-            print(m_printer, m_prefix, "Sending image, id: ", id, ".");
-            send(m_server, atom("result"), id, ba);
+            send_result_to(m_server, image, m_current_id);
+            aout << m_prefix << "Sent image with id '"
+                 << m_current_id << "' to server.\n";
             send(this, atom("next"));
         },
         others() >> [=]() {
-            print(m_printer, m_prefix, "Unexpected message: '",  to_string(last_dequeued()), "'.");
+            aout << m_prefix << "Unexpected message: '"
+                 << to_string(last_dequeued()) << "'.\n";
         }
     );
 }
 
-client::client(actor_ptr printer, actor_ptr server, uint32_t client_id) : m_server{server}, m_printer{printer}, m_client_id{client_id} {
+client::client(actor_ptr server,
+               uint32_t client_id,
+               bool with_opencl)
+    : m_server{server}
+    , m_client_id{client_id}
+    , m_with_opencl{with_opencl}
+    , m_disp{detail::singleton_manager::get_command_dispatcher()}
+    , m_program{kernel_source}
+    , m_current_id{0}
+    , m_current_width{0}
+    , m_current_height{0}
+{
     stringstream strstr;
     strstr << "[" << m_client_id << "] ";
     m_prefix = move(strstr.str());
     send(m_server, atom("link"));
-}
-
-void print_usage(actor_ptr printer) {
-    send(printer, "Usage: fractal_client\n -h, --host=\t\tserver host\n -p, --port=\t\tserver port\n -a, --actors=\t\tnumber of actors\n");
 }
 
 
@@ -119,32 +219,51 @@ auto main(int argc, char* argv[]) -> int {
                                   static_cast<complex_setter>(&complex_d::real)),
                         make_pair(static_cast<complex_getter>(&complex_d::imag),
                                   static_cast<complex_setter>(&complex_d::imag)));
+    announce<vector<float>>();
+    announce<vector<int>>();
 
     cout.unsetf(std::ios_base::unitbuf);
-
-    auto printer = spawn_printer();
 
     string host;
     uint16_t port{20283};
     uint32_t number_of_actors{1};
+    bool with_opencl{false};
 
     options_description desc;
     bool args_valid = match_stream<string>(argv + 1, argv + argc) (
-        on_opt1('H', "host", &desc, "set server host") >> rd_arg(host),
-        on_opt1('p', "port", &desc, "set port (default: 20283)") >> rd_arg(port),
-        on_opt1('a', "actors", &desc, "set number of actors started by this client") >> rd_arg(number_of_actors),
-        on_opt0('h', "help", &desc, "print help") >> print_desc_and_exit(&desc)
+        on_opt1('H', "host", &desc,
+                "set server host")
+                >> rd_arg(host),
+        on_opt1('p', "port", &desc,
+                "set port (default: 20283)")
+                >> rd_arg(port),
+        on_opt1('a', "actors", &desc,
+                "set number of actors started by this client")
+                >> rd_arg(number_of_actors),
+        on_opt0('o', "opencl", &desc,
+                "run with opencl")
+                >> [&] { with_opencl = true; },
+        on_opt0('h', "help", &desc,
+                "print help")
+                >> print_desc_and_exit(&desc)
     );
-    if (!args_valid || host.empty()) print_desc_and_exit(&desc)();
+    if (!args_valid || host.empty() || number_of_actors < 1) {
+        print_desc_and_exit(&desc)();
+    }
 
-    print(printer, "Starting client(s).\nConnecting to '", host, "' on port '", port, "'.");
+    aout << "Starting client(s). Connecting to '" << host
+         << "' on port '" << port << "'.\n";
+
+    if (with_opencl) {
+        aout << "Using OpenCL kernel for calculations.\n";
+    }
     auto server = remote_actor(host, port);
     vector<actor_ptr> running_actors;
     for (uint32_t i{0}; i < number_of_actors; ++i) {
-        running_actors.push_back(spawn<client>(printer, server, i));
+        running_actors.push_back(spawn<client>(server, i, with_opencl));
     }
 
-    print(printer, "Now I have ", running_actors.size(), " worker(s) running!\nTime to start working.");
+    aout << running_actors.size() << " worker(s) running.\n";
     for (actor_ptr worker : running_actors) {
         send(worker, atom("next"));
     }
@@ -160,7 +279,7 @@ auto main(int argc, char* argv[]) -> int {
                     done = true;
                 },
                 others() >> [&] {
-                    send(printer, "available commands:\n - /quit");
+                    aout << "available commands:\n - /quit\n";
                 }
             );
         }
@@ -168,7 +287,6 @@ auto main(int argc, char* argv[]) -> int {
     for (auto& a : running_actors) {
         send(a, atom("quit"));
     }
-    send(printer, atom("quit"));
     await_all_others_done();
     shutdown();
     return 0;

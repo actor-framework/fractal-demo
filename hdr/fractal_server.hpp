@@ -23,8 +23,14 @@ class server : public cppa::event_based_actor {
 
  private:
 
-    typedef std::function<ld_tuple (long double, long double, long double, long double)> equation;
-    typedef std::function<bool (const long double, const long double, const long double, const long double)> condition;
+    typedef std::function<ld_tuple (long double,
+                                    long double,
+                                    long double,
+                                    long double)> equation;
+    typedef std::function<bool (const long double,
+                                const long double,
+                                const long double,
+                                const long double)> condition;
     typedef std::pair<equation, condition> stack_element;
 
     cppa::actor_ptr m_gui;
@@ -56,20 +62,36 @@ class server : public cppa::event_based_actor {
 
     std::vector<stack_element> m_operations;
 
-    void init();
-
     void initialize_stack();
 
-    void add_start_move(long double from_x, long double from_y, long double to_x, long double to_y, int max_zoom);
-    void add_move_from_to(long double from_x, long double from_y, long double to_x, long double to_y, int max_zoom);
-    void add_end_move(long double from_x, long double from_y, long double to_x, long double to_y);
-    void add_chain(std::vector<std::pair<long double, long double> >& chain, int zoom);
+    void add_start_move(long double from_x,
+                        long double from_y,
+                        long double to_x,
+                        long double to_y,
+                        int max_zoom);
+    void add_move_from_to(long double from_x,
+                          long double from_y,
+                          long double to_x,
+                          long double to_y,
+                          int max_zoom);
+    void add_end_move(long double from_x,
+                      long double from_y,
+                      long double to_x,
+                      long double to_y);
+    void add_chain(std::vector<std::pair<long double, long double> >& chain,
+                   int zoom);
 
  public:
 
-    server(const cppa::actor_ptr& m_gui, uint32_t interval, uint32_t iterations, uint32_t queuesize, double zoom);
+    server(const cppa::actor_ptr& m_gui,
+           uint32_t interval,
+           uint32_t iterations,
+           uint32_t queuesize,
+           double zoom);
 
     virtual ~server();
+
+    void init();
 
 };
 

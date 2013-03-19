@@ -70,6 +70,10 @@ else ()
   message(FATAL_ERROR "Your C++ compiler does not support C++11.")
 endif ()
 
+if (CPPA_LOG_LEVEL)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPPA_LOG_LEVEL=${CPPA_LOG_LEVEL}")
+endif(CPPA_LOG_LEVEL)
+
 # set build type (evaluate ENABLE_DEBUG flag)
 if (ENABLE_DEBUG)
   set(CMAKE_BUILD_TYPE Debug)
@@ -88,6 +92,12 @@ find_package(LibCPPA REQUIRED)
 # find boost
 find_package (Boost COMPONENTS regex REQUIRED)
 
+# find opencl
+if (ENABLE_OPENCL)
+   find_package(OPENCL REQUIRED)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPPA_OPENCL")
+endif (ENABLE_OPENCL)
+
 # by default only QtCore and QtGui modules are enabled
 # other modules must be enabled like this:
 #SET( QT_USE_QT3SUPPORT TRUE )   
@@ -100,6 +110,7 @@ FIND_PACKAGE( Qt4 REQUIRED )
 # add some useful macros and variables
 # (QT_USE_FILE is a variable defined by FIND_PACKAGE( Qt4 ) that contains a path to CMake script)
 INCLUDE( ${QT_USE_FILE} )
+
 
 # this command will generate rules that will run rcc on all files from SAMPLE_RCS
 # in result SAMPLE_RC_SRCS variable will contain paths to files produced by rcc
@@ -114,11 +125,11 @@ QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} hdr/fractal_server.hpp 
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH 
 # from qmake)
-INCLUDE_DIRECTORIES(. hdr ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE} ${Boost_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(. hdr ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE} ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS})
 
 macro(add_exec name)
     add_executable(${name} ./src/${name}.cpp ./src/q_byte_array_info.cpp ./src/long_double_info.cpp ${ARGN})
-    target_link_libraries(${name} ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES} ${Boost_REGEX_LIBRARY})
+    target_link_libraries(${name} ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES} ${Boost_REGEX_LIBRARY} ${OPENCL_LIBRARIES})
     add_dependencies(${name} all_examples)
 endmacro()
 

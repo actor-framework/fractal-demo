@@ -3,7 +3,8 @@
 using namespace std;
 using namespace cppa;
 
-void q_byte_array_info::serialize(const void* ptr, cppa::serializer* sink) const {
+void q_byte_array_info::serialize(const void* ptr,
+                                  cppa::serializer* sink) const {
     sink->begin_object(name());
     auto ba_ptr = reinterpret_cast<const QByteArray*>(ptr);
     auto ba_size = static_cast<uint32_t>(ba_ptr->size());
@@ -12,7 +13,8 @@ void q_byte_array_info::serialize(const void* ptr, cppa::serializer* sink) const
     sink->end_object();
 }
 
-void q_byte_array_info::deserialize(void* ptr, cppa::deserializer* source) const {
+void q_byte_array_info::deserialize(void* ptr,
+                                    cppa::deserializer* source) const {
     string cname = source->seek_object();
     if (cname != name()) {
         throw logic_error("wrong type name found");

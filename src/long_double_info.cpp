@@ -3,7 +3,8 @@
 using namespace std;
 using namespace cppa;
 
-void long_double_info::serialize(const void* ptr, cppa::serializer* sink) const {
+void long_double_info::serialize(const void* ptr,
+                                 cppa::serializer* sink) const {
     sink->begin_object(name());
 //    auto ld_ptr = reinterpret_cast<const long double*>(ptr);
     auto ld_size = static_cast<uint32_t>(sizeof(long double));
@@ -12,7 +13,8 @@ void long_double_info::serialize(const void* ptr, cppa::serializer* sink) const 
     sink->end_object();
 }
 
-void long_double_info::deserialize(void* ptr, cppa::deserializer* source) const {
+void long_double_info::deserialize(void* ptr,
+                                   cppa::deserializer* source) const {
     string cname = source->seek_object();
     if (cname != name()) {
         throw logic_error("wrong type name found");

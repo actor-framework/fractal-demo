@@ -2,7 +2,6 @@
 #include <chrono>
 #include <time.h>
 #include <vector>
-#include <complex>
 #include <cstdlib>
 #include <iostream>
 
@@ -14,6 +13,8 @@
 #include "cppa/opt.hpp"
 #include "cppa/cppa.hpp"
 
+#include "cppa/opencl/program.hpp"
+
 #include "fractal_cppa.hpp"
 #include "fractal_client.hpp"
 #include "q_byte_array_info.hpp"
@@ -22,7 +23,7 @@ using namespace std;
 using namespace cppa;
 
 #define STRINGIFY(A) #A
-std::string kernel_source = STRINGIFY(
+namespace { constexpr const char* kernel_source = R"__(
 __kernel void mandelbrot(__global float* config,
                          __global int* output)
 {
@@ -56,7 +57,7 @@ __kernel void mandelbrot(__global float* config,
     } while (cnt < iterations && cond <= 4.0f);
     output[x+y*width] = cnt;
 }
-);
+)__"; }
 
 void send_result_to(actor_ptr server, QImage &image, unsigned id) {
     QByteArray ba;
@@ -111,10 +112,10 @@ void client::init() {
                     || m_current_height != height
                     || !m_fractal) {
                     m_fractal = m_disp->spawn<vector<int>,
-                            vector<float>>(m_program,
-                                           "mandelbrot",
-                                           width,
-                                           height);
+                                              vector<float>>(m_program,
+                                                             "mandelbrot",
+                                                             width,
+                                                             height);
                     m_current_width = width;
                     m_current_height = height;
                 }
@@ -139,16 +140,6 @@ void client::init() {
                              QImage::Format_RGB32};
                 for (unsigned y{0}; y < height; ++y) {
                     for (unsigned x{0}; x < width; ++x) {
-//                        complex_d z{min_re + x * re_factor, max_im - y * im_factor};
-//                        const complex_d constant{z};
-//                        uint32_t cnt{0};
-//                        for (bool done{false}; !done;) {
-//                            z = pow(z, 2) + constant;
-//                            cnt++;
-//                            if (cnt >= iterations || abs(z) > 2 ) {
-//                                done = true;
-//                            }
-//                        };
                         float z_re = min_re + x*re_factor;
                         float z_im = max_im - y*im_factor;
                         float const_re = z_re;
@@ -196,12 +187,13 @@ void client::init() {
 
 client::client(actor_ptr server,
                uint32_t client_id,
-               bool with_opencl)
+               bool with_opencl,
+               opencl::program& prog)
     : m_server{server}
     , m_client_id{client_id}
     , m_with_opencl{with_opencl}
     , m_disp{detail::singleton_manager::get_command_dispatcher()}
-    , m_program{kernel_source}
+    , m_program{prog}
     , m_current_id{0}
     , m_current_width{0}
     , m_current_height{0}
@@ -215,10 +207,12 @@ client::client(actor_ptr server,
 
 auto main(int argc, char* argv[]) -> int {
     announce(typeid(QByteArray), new q_byte_array_info);
+    /*
     announce<complex_d>(make_pair(static_cast<complex_getter>(&complex_d::real),
                                   static_cast<complex_setter>(&complex_d::real)),
                         make_pair(static_cast<complex_getter>(&complex_d::imag),
                                   static_cast<complex_setter>(&complex_d::imag)));
+    */
     announce<vector<float>>();
     announce<vector<int>>();
 
@@ -258,9 +252,10 @@ auto main(int argc, char* argv[]) -> int {
         aout << "Using OpenCL kernel for calculations.\n";
     }
     auto server = remote_actor(host, port);
+    auto prog = opencl::program::create(kernel_source);
     vector<actor_ptr> running_actors;
     for (uint32_t i{0}; i < number_of_actors; ++i) {
-        running_actors.push_back(spawn<client>(server, i, with_opencl));
+        running_actors.push_back(spawn<client>(server, i, with_opencl, prog));
     }
 
     aout << running_actors.size() << " worker(s) running.\n";

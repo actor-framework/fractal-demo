@@ -21,7 +21,8 @@ class client : public cppa::event_based_actor {
 
     client(cppa::actor_ptr server,
            uint32_t client_id,
-           bool with_opencl);
+           bool with_opencl,
+           cppa::opencl::program& prog);
 
     void init();
 

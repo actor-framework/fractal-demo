@@ -25,35 +25,13 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
                                   - RelWithDebInfo: release flags plus debugging
     --build-dir=DIR             place build files in directory [build]
     --bin-dir=DIR               executable directory [build/bin]
-    --lib-dir=DIR               library directory [build/lib]
     --with-clang=FILE           path to clang++ executable
     --with-gcc=FILE             path to g++ executable
     --dual-build                build both with gcc and clang
-    --no-examples               build libcppa without examples
-    --no-qt-examples            build libcppa with all but Qt examples
-    --no-unit-tests             build libcppa without unit tests
-    --build-static              build libcppa as static and shared library
-    --build-static-only         build libcppa as static library only
-    --with-opencl               build libcppa with OpenCL support
+    --with-opencl               build with OpenCL support
 
   Installation Directories:
     --prefix=PREFIX             installation directory [/usr/local]
-
-  Optional Features:
-    --enable-debug              compile in debugging mode
-                                (always sets --build-type=Debug)
-    --enable-perftools          use Google perftools
-    --with-cppa-log-level=LVL   sets the debugging output, possible values:
-                                  - ERROR
-                                  - WARNING
-                                  - INFO
-                                  - DEBUG
-                                  - TRACE
-                                (implicitly sets --enable-debug)
-
-  Platform-Dependent Adjustments:
-    --disable-context-switching compile libcppa without context-switching actors
-                                even if Boost.Context is available
 
   Required Packages in Non-Standard Locations:
     --with-boost=PATH           path to Boost install root
@@ -164,34 +142,6 @@ while [ $# -ne 0 ]; do
         --with-opencl)
             append_cache_entry ENABLE_OPENCL BOOL true
             ;;
-        --with-cppa-log-level=*)
-            level=$(echo "$optarg" | tr '[:lower:]' '[:upper:]')
-            case $level in
-                ERROR)
-                    append_cache_entry CPPA_LOG_LEVEL STRING 0
-                    ;;
-                WARNING)
-                    append_cache_entry CPPA_LOG_LEVEL STRING 1
-                    ;;
-                INFO)
-                    append_cache_entry CPPA_LOG_LEVEL STRING 2
-                    ;;
-                DEBUG)
-                    append_cache_entry CPPA_LOG_LEVEL STRING 3
-                    ;;
-                TRACE)
-                    append_cache_entry CPPA_LOG_LEVEL STRING 4
-                    ;;
-                *)
-                    echo "Invalid log level '$level'. Try '$0 --help' to see valid values."
-                    exit 1
-                    ;;
-            esac
-            append_cache_entry ENABLE_DEBUG BOOL true
-            ;;
-        --disable-context-switching)
-            append_cache_entry DISABLE_CONTEXT_SWITCHING BOOL true
-            ;;
         --with-boost=*)
             append_cache_entry BOOST_ROOT PATH $optarg
             ;;
@@ -213,26 +163,8 @@ while [ $# -ne 0 ]; do
         --bin-dir=*)
             bindir=$optarg
             ;;
-        --lib-dir=*)
-            libdir=$optarg
-            ;;
         --dual-build)
             dualbuild=1
-            ;;
-        --no-examples)
-            append_cache_entry CPPA_NO_EXAMPLES STRING yes
-            ;;
-        --no-qt-examples)
-            append_cache_entry CPPA_NO_QT_EXAMPLES STRING yes
-            ;;
-        --no-unit-tests)
-            append_cache_entry CPPA_NO_UNIT_TESTS STRING yes
-            ;;
-        --build-static)
-            append_cache_entry CPPA_BUILD_STATIC STRING yes
-            ;;
-        --build-static-only)
-            append_cache_entry CPPA_BUILD_STATIC_ONLY STRING yes
             ;;
         *)
             echo "Invalid option '$1'.  Try $0 --help to see available options."

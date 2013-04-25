@@ -12,8 +12,7 @@
 
 #include "cppa/opt.hpp"
 #include "cppa/cppa.hpp"
-
-#include "cppa/opencl/program.hpp"
+#include "cppa/opencl.hpp"
 
 #include "fractal_cppa.hpp"
 #include "fractal_client.hpp"
@@ -111,11 +110,9 @@ void client::init() {
                 if (   m_current_width != width
                     || m_current_height != height
                     || !m_fractal) {
-                    m_fractal = m_disp->spawn<vector<int>,
-                                              vector<float>>(m_program,
-                                                             "mandelbrot",
-                                                             width,
-                                                             height);
+                    m_fractal = spawn_cl<vector<int>(vector<float>)>(m_program,
+                                                                     "mandelbrot",
+                                                                     {width, height});
                     m_current_width = width;
                     m_current_height = height;
                 }
@@ -192,7 +189,6 @@ client::client(actor_ptr server,
     : m_server{server}
     , m_client_id{client_id}
     , m_with_opencl{with_opencl}
-    , m_disp{detail::singleton_manager::get_command_dispatcher()}
     , m_program{prog}
     , m_current_id{0}
     , m_current_width{0}

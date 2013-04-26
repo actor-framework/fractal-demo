@@ -51,4 +51,4 @@ To enable OpenCL usage you should run the client with the -o flag.
 Operating Systems
 -----------------
 
-Tested on OSX, and Linux too.
+Tested on OSX, and Linux.

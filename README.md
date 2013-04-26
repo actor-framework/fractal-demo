@@ -25,12 +25,18 @@ Get the source
 Build the apps
 --------------
 
-    ./configure --with-gcc=<your-gcc4.7-compiler>
+    ./configure --with-gcc=<your-gcc-compiler>
     make
 
 Cmake needs to find qt. If it does not by default, add the qt bin directory to your PATH.
     
     export PATH=<PATH_TO_SDK>/QtSDK/Desktop/Qt/4.8.1/gcc/bin/:$PATH
+
+It is possibile to use OpenCL for the calculation. To do this you need to compile libcppa and
+this project with the OpenCL option. (currently only supported in libcppa's unstable branch)
+
+    ./configure --with-gcc=<your-gcc-compiler> --with-opencl
+    make
 
 Usage:
 ------
@@ -38,7 +44,11 @@ Usage:
     ./build/bin/fractal_server -p 1234
     ./build/bin/fractal_client -h localhost -p 1234
 
+To enable OpenCL usage you should run the client with the -o flag.
+
+    ./build/bin/fractal_client -h localhost -p 1234 -o
+
 Operating Systems
 -----------------
 
-Tested on OSX, but should work on Linux too.
+Tested on OSX, and Linux too.

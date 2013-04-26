@@ -21,8 +21,7 @@ class client : public cppa::event_based_actor {
 
     client(cppa::actor_ptr server,
            uint32_t client_id,
-           bool with_opencl,
-           cppa::opencl::program& prog);
+           bool with_opencl);
 
     void init();
 
@@ -37,7 +36,9 @@ class client : public cppa::event_based_actor {
     std::vector<QColor> m_palette;
 
     bool m_with_opencl;
+#ifdef ENABLE_OPENCL
     cppa::opencl::program m_program;
+#endif
     cppa::actor_ptr m_fractal;
     unsigned m_current_id;
     unsigned m_current_width;

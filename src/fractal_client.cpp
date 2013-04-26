@@ -21,42 +21,47 @@
 using namespace std;
 using namespace cppa;
 
-#define STRINGIFY(A) #A
-namespace { constexpr const char* kernel_source = R"__(
-__kernel void mandelbrot(__global float* config,
-                         __global int* output)
-{
-    unsigned iterations = config[0];
-    unsigned width = config[1];
-    unsigned height = config[2];
+#ifdef ENABLE_OPENCL
+namespace {
 
-    float min_re = config[3];
-    float max_re = config[4];
-    float min_im = config[5];
-    float max_im = config[6];
+constexpr const char* kernel_source = R"__(
+    __kernel void mandelbrot(__global float* config,
+                             __global int* output)
+    {
+        unsigned iterations = config[0];
+        unsigned width = config[1];
+        unsigned height = config[2];
 
-    float re_factor = (max_re-min_re)/(width-1);
-    float im_factor = (max_im-min_im)/(height-1);
+        float min_re = config[3];
+        float max_re = config[4];
+        float min_im = config[5];
+        float max_im = config[6];
 
-    unsigned x = get_global_id(0);
-    unsigned y = get_global_id(1);
-    float z_re = min_re + x*re_factor;
-    float z_im = max_im - y*im_factor;
-    float const_re = z_re;
-    float const_im = z_im;
-    unsigned cnt = 0;
-    float cond = 0;
-    do {
-        float tmp_re = z_re;
-        float tmp_im = z_im;
-        z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) + const_re;
-        z_im = ( 2 * tmp_re * tmp_im ) + const_im;
-        cond = z_re*z_re + z_im*z_im;
-        cnt ++;
-    } while (cnt < iterations && cond <= 4.0f);
-    output[x+y*width] = cnt;
+        float re_factor = (max_re-min_re)/(width-1);
+        float im_factor = (max_im-min_im)/(height-1);
+
+        unsigned x = get_global_id(0);
+        unsigned y = get_global_id(1);
+        float z_re = min_re + x*re_factor;
+        float z_im = max_im - y*im_factor;
+        float const_re = z_re;
+        float const_im = z_im;
+        unsigned cnt = 0;
+        float cond = 0;
+        do {
+            float tmp_re = z_re;
+            float tmp_im = z_im;
+            z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) + const_re;
+            z_im = ( 2 * tmp_re * tmp_im ) + const_im;
+            cond = z_re*z_re + z_im*z_im;
+            cnt ++;
+        } while (cnt < iterations && cond <= 4.0f);
+        output[x+y*width] = cnt;
+    }
+)__";
+
 }
-)__"; }
+#endif
 
 void send_result_to(actor_ptr& server, QImage &image, unsigned id) {
     QByteArray ba;
@@ -108,6 +113,7 @@ void client::init() {
                 }
                 m_palette.push_back(QColor(qRgb(0,0,0)));
             }
+#ifdef ENABLE_OPENCL
             if(m_with_opencl) {
                 if (   m_current_width != width
                     || m_current_height != height
@@ -133,6 +139,7 @@ void client::init() {
 //                aout << m_prefix << "Sent work to opencl kernel.\n";
             }
             else {
+#endif
                 long double re_factor{(max_re-min_re)/(width-1)};
                 long double im_factor{(max_im-min_im)/(height-1)};
                 QImage image{static_cast<int>(width),
@@ -161,7 +168,9 @@ void client::init() {
 //                aout << m_prefix << "Sent image with id '"
 //                     << id << "' to server.\n";
                 send(this, atom("next"));
+#ifdef ENABLE_OPENCL
             }
+#endif
         },
         on_arg_match >> [&](const vector<int>& result) {
 //            aout << m_prefix << "Received result from gpu\n";
@@ -187,12 +196,13 @@ void client::init() {
 
 client::client(actor_ptr server,
                uint32_t client_id,
-               bool with_opencl,
-               opencl::program& prog)
+               bool with_opencl)
     : m_server{server}
     , m_client_id{client_id}
     , m_with_opencl{with_opencl}
-    , m_program{prog}
+#ifdef ENABLE_OPENCL
+    , m_program{opencl::program::create(kernel_source)}
+#endif
     , m_current_id{0}
     , m_current_width{0}
     , m_current_height{0}
@@ -250,10 +260,9 @@ auto main(int argc, char* argv[]) -> int {
         aout << "Using OpenCL kernel for calculations.\n";
     }
     auto server = remote_actor(host, port);
-    auto prog = opencl::program::create(kernel_source);
     vector<actor_ptr> running_actors;
     for (uint32_t i{0}; i < number_of_actors; ++i) {
-        running_actors.push_back(spawn<client>(server, i, with_opencl, prog));
+        running_actors.push_back(spawn<client>(server, i, with_opencl));
     }
 
     aout << running_actors.size() << " worker(s) running.\n";

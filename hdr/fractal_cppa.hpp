@@ -19,6 +19,12 @@
 #include "cppa/match.hpp"
 #include "cppa/exit_reason.hpp"
 
+#ifdef FRACTAL_DEBUG
+#   define FRAC_DEBUG(s) aout << s << endl;
+#else
+#   define FRAC_DEBUG(s)
+#endif
+
 typedef std::complex<long double> complex_d;
 
 typedef long double (complex_d::*complex_getter)() const;

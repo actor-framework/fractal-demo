@@ -21,6 +21,8 @@ typedef std::tuple<long double, long double, long double, long double> ld_tuple;
 
 class server : public cppa::event_based_actor {
 
+    friend class reset_loop;
+
  private:
 
     typedef std::function<ld_tuple (long double,
@@ -46,8 +48,6 @@ class server : public cppa::event_based_actor {
     std::uint32_t m_next_id;
     std::uint32_t m_assign_id;
 
-    const complex_d m_power;
-
     uint32_t m_width;
     uint32_t m_height;
 
@@ -62,7 +62,7 @@ class server : public cppa::event_based_actor {
 
     std::vector<stack_element> m_operations;
 
-    void initialize_stack();
+    void loop_stack();
 
     void add_start_move(long double from_x,
                         long double from_y,

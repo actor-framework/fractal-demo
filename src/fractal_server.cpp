@@ -46,14 +46,13 @@ namespace {
                                     + (DEFAULT_MAX_REAL-DEFAULT_MIN_REAL)
                                     * DEFAULT_HEIGHT/DEFAULT_WIDTH};
     const long double DEFAULT_ZOOM_FACTOR{0.9}; // must be <= 0.0
-    const complex_d DEFAULT_POWER{2,0}; // used by the mandelbrot calculation
 }
 
 bool condition_once(const long double,
                     const long double,
                     const long double,
                     const long double) {
-    cout << "[?] condition once: true" << endl;
+    FRAC_DEBUG("[?] condition once: true");
     return true;
 }
 
@@ -64,7 +63,7 @@ bool condition_zoomed_out(const long double min_re,
     auto default_width = (abs(DEFAULT_MAX_REAL + (-1*DEFAULT_MIN_REAL)));
     auto current_width = abs(max_re + (-1*min_re));
     auto rc = (current_width >= default_width);
-    cout << "[?] condition zoomed out: " << boolalpha << rc << endl;
+    FRAC_DEBUG("[?] condition zoomed out: " << boolalpha << rc);
     return rc;
 }
 
@@ -75,7 +74,7 @@ bool condition_zoomed_in(const long double min_re,
     auto default_width = (abs(DEFAULT_MAX_REAL + (-1*DEFAULT_MIN_REAL)));
     auto current_width = abs(max_re + (-1*min_re));
     auto rc = (current_width <= (pow(DEFAULT_ZOOM_FACTOR, 50))* default_width);
-    cout << "[?] condition zoomed in: " << boolalpha << rc << endl;
+    FRAC_DEBUG("[?] condition zoomed in: " << boolalpha << rc);
     return  rc;// todo: exchange to some double value
 }
 
@@ -83,7 +82,7 @@ bool condition_idle(const long double,
                     const long double,
                     const long double,
                     const long double) {
-    cout << "[?] condition idle: " << boolalpha << false << endl;
+    FRAC_DEBUG("[?] condition idle: " << boolalpha << false);
     return false;
 }
 
@@ -92,10 +91,8 @@ struct condition_zoomed_in_to {
     condition_zoomed_in_to(int zoom_step) {
         auto default_width = (abs(DEFAULT_MAX_REAL + (-1*DEFAULT_MIN_REAL)));
         m_min_width = pow(DEFAULT_ZOOM_FACTOR, zoom_step) * default_width;
-        cout << "[?] condition zoomed in min size: "
-             << m_min_width
-             << "."
-             << endl;
+        FRAC_DEBUG("[?] condition zoomed in min size: "
+                   << m_min_width << ".");
     }
     bool operator()(const long double min_re,
                     const long double max_re,
@@ -103,12 +100,8 @@ struct condition_zoomed_in_to {
                     const long double) const {
         auto width  = abs(max_re + (-1*min_re));
         auto rc = (width <= m_min_width);
-        cout << "[?] condition zoomed in to, current: "
-             << width
-             << ", min: "
-             << m_min_width
-             << "."
-             << endl;
+        FRAC_DEBUG("[?] condition zoomed in to, current: "
+                   << width << ", min: " << m_min_width << ".");
         return rc;
     }
 };
@@ -118,10 +111,8 @@ struct condition_zoomed_out_to {
     condition_zoomed_out_to(int zoom_step) {
         auto default_width = (abs(DEFAULT_MAX_REAL + (-1*DEFAULT_MIN_REAL)));
         m_max_width = pow(DEFAULT_ZOOM_FACTOR, zoom_step) * default_width;
-        cout << "[?] condition zoomed out max size: "
-             << m_max_width
-             << "."
-             << endl;
+        FRAC_DEBUG("[?] condition zoomed out max size: "
+                   << m_max_width << ".");
     }
     bool operator()(const long double min_re,
                     const long double max_re,
@@ -129,12 +120,9 @@ struct condition_zoomed_out_to {
                     const long double) const {
         auto width  = abs(max_re + (-1*min_re));
         auto rc = (width >= m_max_width);
-        cout << "[?] condition zoomed out to, current: "
-             << width
-             << ", max: "
-             << m_max_width
-             << "."
-             << endl;
+        FRAC_DEBUG("[?] condition zoomed out to, current: "
+                   << width << ", max: "
+                   << m_max_width << ".");
         return rc;
     }
 };
@@ -153,16 +141,13 @@ struct condition_equal_point {
         auto re = min_re + half_width;
         auto im = min_im + half_height;
         if ( re == my_re && im == my_im) {
-            cout << "[?] conditon equal point: true" << endl;
+        FRAC_DEBUG("[?] conditon equal point: true");
             return true;
         }
         else {
-            cout << "[?] conditon equal point: false ("
-                 << re << "/" << im
-                 << ") != ("
-                 << my_re << "/" << my_im
-                 << ")."
-                 << endl;
+            FRAC_DEBUG("[?] conditon equal point: false ("
+                       << re << "/" << im << ") != ("
+                       << my_re << "/" << my_im << ").");
             return false;
         }
     }
@@ -183,18 +168,18 @@ struct condition_near {
         auto re = min_re + half_width;
         auto im = min_im + half_height;
         if (abs(m_re-re) < m_radius && abs(m_im-im) < m_radius) {
-            cout << "[?] conditon near: true" << endl;
+            FRAC_DEBUG("[?] conditon near: true");
             return true;
         }
         else {
-            cout << "[?] conditon near: false" << endl;
+            FRAC_DEBUG("[?] conditon near: false");
             return false;
         }
     }
 };
 
 ld_tuple reset_view(long double, long double, long double, long double) {
-    cout << "[~] resetting view" << endl;
+    FRAC_DEBUG("[~] resetting view");
     auto half_width  = abs(DEFAULT_MAX_REAL + (-1*DEFAULT_MIN_REAL))/2;
     auto half_height = abs(DEFAULT_MAX_IMAG + (-1*DEFAULT_MIN_IMAG))/2;
     long double re{0.0};
@@ -209,7 +194,7 @@ ld_tuple idle(long double min_re,
               long double max_re,
               long double min_im,
               long double max_im) {
-    cout << "[~] idleing" << endl;
+    FRAC_DEBUG("[~] idleing");
     return make_tuple(min_re, max_re, min_im, max_im);
 }
 
@@ -217,7 +202,7 @@ ld_tuple zoom_in(long double min_re,
                  long double max_re,
                  long double min_im,
                  long double max_im) {
-    cout << "[~] zooming in" << endl;
+    FRAC_DEBUG("[~] zooming in");
     auto half_width  = abs(max_re + (-1*min_re))/2;
     auto half_height = abs(max_im + (-1*min_im))/2;
     auto re = min_re + half_width;
@@ -234,7 +219,7 @@ ld_tuple zoom_out(long double min_re,
                   long double max_re,
                   long double min_im,
                   long double max_im) {
-    cout << "[~] zooming out" << endl;
+    FRAC_DEBUG("[~] zooming out");
     auto half_width  = abs(max_re + (-1*min_re))/2;
     auto half_height = abs(max_im + (-1*min_im))/2;
     auto re = min_re + half_width;
@@ -264,7 +249,7 @@ struct move_line {
                         long double max_re,
                         long double min_im,
                         long double max_im) const {
-        cout << "[~] moveing along line" << endl;
+        FRAC_DEBUG("[~] moveing along line");
         auto half_width  = abs(max_re + (-1*min_re))/2;
         auto half_height = abs(max_im + (-1*min_im))/2;
         auto current_re = min_re + half_width;
@@ -339,9 +324,27 @@ struct move_line_zoom_out {
     }
 };
 
-void server::initialize_stack() {
-    m_operations.clear();
-    m_operations.emplace_back(idle, condition_idle);
+struct reset_loop {
+    server* m_server;
+    reset_loop(server* server) : m_server(server) { }
+    ld_tuple operator()(long double min_re,
+                        long double max_re,
+                        long double min_im,
+                        long double max_im) const {
+        m_server->loop_stack();
+        return make_tuple(min_re, max_re, min_im, max_im);
+    }
+};
+
+void server::loop_stack() {
+    vector<pair<long double, long double> > chain;
+    chain.push_back(make_pair(-1.86572513851221765677, 0.0));
+    chain.push_back(make_pair(-0.7458555,  0.10550365));
+//    chain.push_back(make_pair(-0.0012, 0.7383));
+//    chain.push_back(make_pair(-0.13856524454488, -0.64935990748190));
+    add_chain(chain, 100);
+    m_operations.emplace_back(reset_view, condition_once);
+    m_operations.emplace_back(reset_view, condition_once);
 }
 
 void server::add_start_move(long double from_x,
@@ -417,7 +420,7 @@ void server::add_chain(std::vector<std::pair<long double, long double> >& chain,
                        zoom);
     }
     else {
-        cout << "Chain is empty, no moves added." << endl;
+        FRAC_DEBUG("Chain is empty, no moves added.");
     }
 }
 
@@ -428,29 +431,28 @@ void server::init() {
     become (
         on(atom("enqueue")) >> [=] {
             m_available_workers.push_back(last_sender());
-            cout << "Worker enqueued. Available workers: "
-                 << m_available_workers.size() << "." << endl;
+            FRAC_DEBUG("Worker enqueued. Available workers: "
+                       << m_available_workers.size() << ".");
             reply(atom("ack"), atom("enqueue"));
         },
         on(atom("next")) >> [=] {
-            cout << "Looking for next picture. " << m_next_id << flush;
+            FRAC_DEBUG("Looking for next picture. " << m_next_id);
             auto id_itr = m_missing_ids.find(m_next_id);
             auto e = m_missing_ids.end();
             while(id_itr != e) {
                 ++m_next_id;
                 m_missing_ids.erase(id_itr);
                 id_itr = m_missing_ids.find(m_next_id);
-                cout << ", " << m_next_id << flush;
             }
             auto ba_itr = m_results.find(m_next_id);
             if (ba_itr != m_results.end()) {
-                cout << ", found." << endl;
+//                cout << ", found." << endl;
                 send(m_gui, atom("display"), ba_itr->second);
                 m_results.erase(ba_itr);
                 ++m_next_id;
             }
             else {
-                cout << ", not calculated yet." << endl;
+                FRAC_DEBUG("The next picture is not calculated yet.");
             }
             send(self, atom("dequeue"));
             delayed_send(self, chrono::milliseconds(m_interval), atom("next"));
@@ -459,14 +461,14 @@ void server::init() {
             int counter{0};
             for (bool done{false}; !done;) {
                 if (counter >= 10) {
-                    cout << "Let's do something else for a while." << endl;
+                    FRAC_DEBUG("Let's do something else for a while.");
                     done = true;
                 } else if (m_available_workers.empty()) {
-                    cout << "No more workers available." << endl;
+                    FRAC_DEBUG("No more workers available.");
                     done = true;
                 }
                 else if (m_results.size() > m_queuesize) {
-                    cout << "Got enought pictures stored." << endl;
+                    FRAC_DEBUG("Got enought pictures stored.");
                     done = true;
                 }
                 else {
@@ -484,36 +486,28 @@ void server::init() {
                         m_max_re == get<1>(image) &&
                         m_min_im == get<2>(image) &&
                         m_max_im == get<3>(image)) {
-                        cout << "Next picture woud look the same." << endl;
+                        FRAC_DEBUG("Next picture woud look the same.");
                         done = true;
                     }
                     else {
                         auto worker = m_available_workers.back();
-                        cout << "Assigning calculations, image id: "
-                             << m_assign_id << "." << endl;
+                        FRAC_DEBUG("Assigning calculations, image id: "
+                                   << m_assign_id << ".");
                         m_min_re = get<0>(image);
                         m_max_re = get<1>(image);
                         m_min_im = get<2>(image);
                         m_max_im = get<3>(image);
-                        send(worker,
-                             atom("assign"),
-                             m_width,
-                             m_height,
-                             m_min_re,
-                             m_max_re,
-                             m_min_im,
-                             m_max_im, m_iterations, m_assign_id);
-                        cout << "[ASSIGNED] picture: " << m_assign_id
-//                             << "\n\tm_min_re: " << m_min_re
-//                             << "\n\tm_max_re: " << m_max_re
-//                             << "\n\tm_min_im: " << m_min_im
-//                             << "\n\tm_max_im: " << m_max_im
-                             << endl;
+                        send(worker, atom("assign"),
+                             m_width, m_height,
+                             m_min_re, m_max_re,
+                             m_min_im, m_max_im,
+                             m_iterations,
+                             m_assign_id);
+                        FRAC_DEBUG("[ASSIGNED] picture: " << m_assign_id);
                         ++m_assign_id;
                         m_available_workers.pop_back();
-                        cout << "Available workers: "
-                             << m_available_workers.size()
-                             << "." << endl;
+                        FRAC_DEBUG("Available workers: "
+                                   << m_available_workers.size() << ".");
                     }
                 }
                 ++counter;
@@ -521,28 +515,27 @@ void server::init() {
         },
         on(atom("result"), arg_match) >> [=](uint32_t id,
                                              const QByteArray& ba) {
-            cout << "Received image with size: " << ba.size() << "." << endl;
+            FRAC_DEBUG("Received image with size: " << ba.size() << ".");
             auto itr = m_assignments.find(id);
             if (itr != m_assignments.end()) {
                 m_assignments.erase(itr);
             }
             if (ba.size() > 0) {
-                cout << "Received image with id: " << id << "." << endl;
+            FRAC_DEBUG("Received image with id: " << id << ".");
                 m_results[id] = ba;
             }
             else {
                 m_missing_ids.insert(id);
-                cout << "Received empty image with id " << id << "." << endl;
+                FRAC_DEBUG("Received empty image with id " << id << ".");
             }
-            cout << "Stored " << m_results.size() << " picture." << endl;
+            FRAC_DEBUG("Stored " << m_results.size() << " picture(s).");
         },
         on(atom("resize"), arg_match) >> [=](int width, int height) {
             m_width = width;
             m_height = height;
             m_max_im = m_min_im+(m_max_re-m_min_re)*m_height/m_width;
-            cout << "Received new width: " << width
-                 << " and hew height: " << height
-                 << "." << endl;
+            FRAC_DEBUG("New width: " << width
+                       << ",new height: " << height << ".");
         },
         on(atom("link")) >> [=] {
             cout << "Connected to new worker." << endl;
@@ -553,7 +546,7 @@ void server::init() {
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t err) {
             cout << "[!!!] Worker disconnectd: 0x"
-                 << hex << err << "." << flush;
+                 << hex << err << "." << endl;
             auto sender = last_sender();
             auto as_itr = find_if(begin(m_assignments),
                                   end(m_assignments),
@@ -563,8 +556,6 @@ void server::init() {
             });
             if (as_itr != m_assignments.end()) {
                 auto id = as_itr->first;
-                cout << " Was working on assignment: "
-                     << dec << id << "." << endl;
                 m_assignments.erase(as_itr);
                 m_missing_ids.insert(id);
             }
@@ -572,7 +563,6 @@ void server::init() {
             auto e = m_available_workers.end();
             auto aw_itr = find(b, e, sender);
             if (aw_itr != e) {
-                cout << " Was waiting for work." << endl;
                 m_available_workers.erase(aw_itr);
             }
         },
@@ -596,7 +586,6 @@ server::server(const cppa::actor_ptr& gui,
       m_zoom{zoom},
       m_next_id{0},
       m_assign_id{0},
-      m_power{DEFAULT_POWER},
       m_width{DEFAULT_WIDTH},
       m_height{DEFAULT_HEIGHT},
       m_min_re{0},
@@ -605,17 +594,9 @@ server::server(const cppa::actor_ptr& gui,
       m_max_im{0}
     {
         cout << "Initializing operations stack." << endl;
-        initialize_stack();
-//            vector<pair<long double, long double> >
-//                chain {make_pair(-1.86572513851221765677, 0.0)};
-        vector<pair<long double, long double> > chain;
-        chain.push_back(make_pair(-1.86572513851221765677, 0.0));
-        chain.push_back(make_pair(-0.7458555,  0.10550365));
-//            chain.push_back(make_pair(-0.0012 / 0.7383));
-//            chain.push_back(make_pair(-0.13856524454488, -0.64935990748190));
-        add_chain(chain, 100); //15);
-        m_operations.emplace_back(reset_view, condition_once);
-        m_operations.emplace_back(reset_view, condition_once);
+        m_operations.clear();
+        m_operations.emplace_back(idle, condition_idle);
+        m_operations.emplace_back(reset_loop(this), condition_idle);
     }
 
 server::~server() { }
@@ -669,8 +650,6 @@ auto main(int argc, char* argv[]) -> int {
     Ui::Main main;
     main.setupUi(&window);
     auto gui = main.mainWidget->as_actor();
-//    send(gui, atom("main"), main);
-//    send(gui, atom("imagelabel"), main.imgLabel);
     cout << "interval: " << interval
          << "\niterations: " << iterations
          << "\nqueuesize: " << queuesize
@@ -684,6 +663,7 @@ auto main(int argc, char* argv[]) -> int {
         publish(server_actor, port);
         cout << "Now running on port: '" << port << "'." << endl;
 //        window.setWindowState(Qt::WindowFullScreen);
+        window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

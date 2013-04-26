@@ -58,21 +58,23 @@ __kernel void mandelbrot(__global float* config,
 }
 )__"; }
 
-void send_result_to(actor_ptr server, QImage &image, unsigned id) {
+void send_result_to(actor_ptr& server, QImage &image, unsigned id) {
     QByteArray ba;
     QBuffer buf{&ba};
     buf.open(QIODevice::WriteOnly);
     image.save(&buf,"BMP");
+//    image.save(&buf, "JPEG");
     buf.close();
-    send(server, atom("result"), id, ba);
+    send(server, atom("result"), id, std::move(ba));
 }
 
 void client::init() {
+    send(m_server, atom("link"));
     become (
         on(atom("next")) >> [=] {
             sync_send(m_server, atom("enqueue")).then(
                 on(atom("ack"), atom("enqueue")) >> [=] {
-                    aout << m_prefix << "Enqueued for work.\n";
+//                    aout << m_prefix << "Enqueued for work.\n";
                 },
                 after(chrono::minutes(5)) >> [=] {
                     aout << m_prefix
@@ -92,8 +94,8 @@ void client::init() {
                                              long double max_im,
                                              uint32_t iterations,
                                              uint32_t id) {
-            aout << m_prefix
-                 << "Received assignment with id '"<< id << "'.\n";
+//            aout << m_prefix
+//                 << "Received assignment with id '"<< id << "'.\n";
             if (iterations != m_iterations) {
                 aout << m_prefix << "Generating new colors.\n";
                 m_iterations = iterations;
@@ -110,6 +112,7 @@ void client::init() {
                 if (   m_current_width != width
                     || m_current_height != height
                     || !m_fractal) {
+                    aout << m_prefix << "New window size." << endl;
                     m_fractal = spawn_cl<vector<int>(vector<float>)>(m_program,
                                                                      "mandelbrot",
                                                                      {width, height});
@@ -127,7 +130,7 @@ void client::init() {
                 config.push_back(min_im);
                 config.push_back(max_im);
                 send(m_fractal, std::move(config));
-                aout << m_prefix << "Sent work to opencl kernel.\n";
+//                aout << m_prefix << "Sent work to opencl kernel.\n";
             }
             else {
                 long double re_factor{(max_re-min_re)/(width-1)};
@@ -155,13 +158,13 @@ void client::init() {
                     }
                 }
                 send_result_to(m_server, image, id);
-                aout << m_prefix << "Sent image with id '"
-                     << id << "' to server.\n";
+//                aout << m_prefix << "Sent image with id '"
+//                     << id << "' to server.\n";
                 send(this, atom("next"));
             }
         },
         on_arg_match >> [&](const vector<int>& result) {
-            aout << m_prefix << "Received result from gpu\n";
+//            aout << m_prefix << "Received result from gpu\n";
             QImage image{static_cast<int>(m_current_width),
                          static_cast<int>(m_current_height),
                          QImage::Format_RGB32};
@@ -171,8 +174,8 @@ void client::init() {
                 }
             }
             send_result_to(m_server, image, m_current_id);
-            aout << m_prefix << "Sent image with id '"
-                 << m_current_id << "' to server.\n";
+//            aout << m_prefix << "Sent image with id '"
+//                 << m_current_id << "' to server.\n";
             send(this, atom("next"));
         },
         others() >> [=]() {
@@ -197,7 +200,6 @@ client::client(actor_ptr server,
     stringstream strstr;
     strstr << "[" << m_client_id << "] ";
     m_prefix = move(strstr.str());
-    send(m_server, atom("link"));
 }
 
 

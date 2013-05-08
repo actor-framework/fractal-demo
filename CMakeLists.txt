@@ -6,7 +6,7 @@ set(FRACTAL_CPPA_VERSION_MINOR 1)
 set(FRACTAL_CPPA_VERSION_PATCH 0)
 
 # qt variables
-set( FRACTAL_CPPA_SRCS 
+set( FRACTAL_CPPA_SRCS
      ./src/fractal_server.cpp
      ./src/farctal_client.cpp
      ./src/imagelabel.cpp
@@ -95,12 +95,12 @@ find_package (Boost COMPONENTS regex REQUIRED)
 # find opencl
 if (ENABLE_OPENCL)
    find_package(OPENCL REQUIRED)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPPA_OPENCL")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_OPENCL")
 endif (ENABLE_OPENCL)
 
 # by default only QtCore and QtGui modules are enabled
 # other modules must be enabled like this:
-#SET( QT_USE_QT3SUPPORT TRUE )   
+#SET( QT_USE_QT3SUPPORT TRUE )
 #SET( QT_USE_QTXML TRUE )
 
 # this command finds Qt4 libraries and sets all required variables
@@ -123,7 +123,7 @@ QT4_WRAP_UI( FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS} )
 QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} hdr/fractal_server.hpp hdr/imagelabel.h hdr/mainwidget.hpp)
 
 # we need this to be able to include headers produced by uic in our code
-# (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH 
+# (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
 # from qmake)
 INCLUDE_DIRECTORIES(. hdr ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE} ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS})
 

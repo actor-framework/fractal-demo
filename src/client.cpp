@@ -12,17 +12,18 @@
 
 #include "cppa/opt.hpp"
 #include "cppa/cppa.hpp"
-#include "cppa/opencl.hpp"
 
 #include "client.hpp"
 #include "config.hpp"
 #include "fractal_request.hpp"
 #include "q_byte_array_info.hpp"
 
+#ifdef ENABLE_OPENCL
+
+#include "cppa/opencl.hpp"
+
 using namespace std;
 using namespace cppa;
-
-#ifdef ENABLE_OPENCL
 
 namespace {
 
@@ -70,6 +71,9 @@ actor_ptr spawn_opencl_client() {
 }
 
 #endif // ENABLE_OPENCL
+
+using namespace std;
+using namespace cppa;
 
 void reply_image(QImage& image, uint32_t image_id) {
     QByteArray ba;

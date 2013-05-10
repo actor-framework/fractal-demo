@@ -1,4 +1,6 @@
-#include "hdr/mainwidget.hpp"
+#include <iostream>
+
+#include "mainwidget.hpp"
 
 #include <QResizeEvent>
 #include <QInputDialog>
@@ -7,32 +9,38 @@
 
 #include "ui_main.h"
 
+using namespace std;
 using namespace cppa;
 
 MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
     super(parent, f),
-    m_has_server(false),
     m_server(nullptr),
     m_imagelabel(nullptr)
 {
     set_message_handler (
-        on(atom("server"), arg_match) >> [=](const actor_ptr& server) {
-            m_server = server;
-            m_has_server = true;
-        },
-        on(atom("display"), arg_match) >> [=](const QByteArray& ba) {
+        on(atom("result"), arg_match) >> [=](uint32_t, const QByteArray& ba) {
             get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
+        },
+        on(atom("done")) >> [] { },
+        others() >> [=] {
+            cout << "[!!!] unexpected message: '"
+                 << to_string(self->last_dequeued())
+                 << "'." << endl;
         }
     );
 }
 
 void MainWidget::resizeEvent(QResizeEvent *event) {
-    if(m_has_server) {
+    if (m_server) {
         const QSize& size = event->size();
-        cppa::send(m_server, cppa::atom("resize"), size.width(), size.height());
+        send_as(as_actor(),
+                m_server,
+                atom("resize"),
+                static_cast<uint32_t>(size.width()),
+                static_cast<uint32_t>(size.height()));
     }
 }
 
 void MainWidget::jumpTo() {
-    std::cout << "[!!!] jump to not implemented!" << std::endl;
+    cout << "[!!!] jump to not implemented!" << endl;
 }

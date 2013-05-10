@@ -39,8 +39,6 @@
 
 using namespace std;
 
-//namespace hamcast { namespace util {
-
 namespace {
 
 typedef config_map::container_type container_type;
@@ -49,19 +47,15 @@ typedef void (*regex_handler)(boost::smatch&, container_type&, string&);
 typedef pair<boost::regex, regex_handler> rx_handler_pair;
 typedef vector<rx_handler_pair> rx_handler_t;
 
-void push_back(rx_handler_t& v, const boost::regex& rx, regex_handler rxh)
-{
+void push_back(rx_handler_t& v, const boost::regex& rx, regex_handler rxh) {
     v.push_back(rx_handler_pair(rx, rxh));
 }
 
 bool matches(rx_handler_t& vec, const string& line,
-             container_type& ini_map, string& section)
-{
+             container_type& ini_map, string& section) {
     boost::smatch sm;
-    for (rx_handler_t::const_iterator i(vec.begin()); i != vec.end(); ++i)
-    {
-        if (boost::regex_match(line, sm, i->first))
-        {
+    for (rx_handler_t::const_iterator i(vec.begin()); i != vec.end(); ++i) {
+        if (boost::regex_match(line, sm, i->first)) {
             (i->second)(sm, ini_map, section);
             return true;
         }
@@ -69,12 +63,9 @@ bool matches(rx_handler_t& vec, const string& line,
     return false;
 }
 
-void new_section(boost::smatch& sm, container_type& cm, string& sec)
-{
+void new_section(boost::smatch& sm, container_type& cm, string& sec) {
     string sec_name = sm[1];
-
-    if (cm.find(sec_name) != cm.end())
-    {
+    if (cm.find(sec_name) != cm.end()) {
         string err;
         err  = "section ";
         err += sec_name;
@@ -86,17 +77,12 @@ void new_section(boost::smatch& sm, container_type& cm, string& sec)
     cm[sec_name];
 }
 
-void add_key_value_pair(boost::smatch& sm, container_type& cm, string& sec)
-{
-    if (sec.empty())
-    {
-        throw runtime_error("key value pair outside section");
-    }
+void add_key_value_pair(boost::smatch& sm, container_type& cm, string& sec) {
+    if (sec.empty()) throw runtime_error("key value pair outside section");
     string key = sm[1];
     string value = sm[2];
     map<string,string>& kv_map = cm[sec];
-    if (kv_map.find(key) != kv_map.end())
-    {
+    if (kv_map.find(key) != kv_map.end()) {
         string err;
         err  = "key ";
         err += key;
@@ -108,8 +94,7 @@ void add_key_value_pair(boost::smatch& sm, container_type& cm, string& sec)
 
 } // namespace <anonymous>
 
-void config_map::read_ini(const string& filename)
-{
+void config_map::read_ini(const string& filename) {
     // stores current section
     string section;
     // INI line handler
@@ -131,27 +116,20 @@ void config_map::read_ini(const string& filename)
     int line_count = 0;
     string line;
     ifstream input_stream(filename.c_str());
-    if (!(input_stream.is_open() && input_stream.good()))
-    {
+    if (!(input_stream.is_open() && input_stream.good())) {
         throw runtime_error("Config file " + filename + " not found");
     }
-    while (getline(input_stream, line))
-    {
+    while (getline(input_stream, line)) {
         ++line_count;
-        if (line.empty())
-        {
+        if (line.empty()) {
             // ignore empty lines
         }
-        else if (line.at(0) == ';')
-        {
+        else if (line.at(0) == ';') {
             // ignore comment lines
         }
-        else if (!matches(rx_handler, line, m_data, section))
-        {
+        else if (!matches(rx_handler, line, m_data, section)) {
             cerr << "Could not parse line " << line_count
                  << " of middleware.ini (skipped)" << endl;
         }
     }
 }
-
-//} } // namespace hamcast::util

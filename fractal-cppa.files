@@ -1,23 +1,26 @@
-hdr/fractal_client.hpp
-src/fractal_client.cpp
+include/client.hpp
+src/client.cpp
 
-hdr/fractal_server.hpp
-src/fractal_server.cpp
+include/server.hpp
+src/server.cpp
 
-hdr/imagelabel.h
+include/imagelabel.h
 src/imagelabel.cpp
 
-hdr/fractal_cppa.hpp
 
-hdr/q_byte_array_info.hpp
+include/q_byte_array_info.hpp
 src/q_byte_array_info.cpp
 
-hdr/mainwidget.hpp
+include/mainwidget.hpp
 src/mainwidget.cpp
 
-hdr/long_double_info.hpp
-src/long_double_info.cpp
 
-hdr/config_map.hpp
+include/config_map.hpp
 src/config_map.cpp
-hdr/projection.hpp
+include/projection.hpp
+src/main.cpp
+include/fractal_request.hpp
+include/fractal_request_stream.hpp
+src/fractal_request_stream.cpp
+include/config.hpp
+src/config.cpp

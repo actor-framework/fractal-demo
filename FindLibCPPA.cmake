@@ -24,6 +24,9 @@ else (CPPA_LIBRARY AND CPPA_INCLUDE)
       ${CMAKE_INSTALL_PREFIX}/include
       ${CPPA_ROOT}/include
       ${CPPA_ROOT}/libcppa
+      ../libcppa
+      ../../libcppa
+      ../../../libcppa
   )
   
   if (CPPA_INCLUDE) 
@@ -57,6 +60,9 @@ else (CPPA_LIBRARY AND CPPA_INCLUDE)
       ${CPPA_ROOT}/libcppa/build/lib
       ${CPPA_ROOT}/${CPPA_BUILD_DIR}/lib
       ${CPPA_ROOT}/libcppa/${CPPA_BUILD_DIR}/lib
+      ../libcppa/build/lib
+      ../../libcppa/build/lib
+      ../../../libcppa/build/lib
   )
 
   if (CPPA_LIBRARY) 

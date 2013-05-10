@@ -7,10 +7,7 @@
 
 #include "projection.hpp"
 
-//namespace hamcast { namespace util {
-
-class config_map
-{
+class config_map {
 
  public:
 
@@ -50,6 +47,19 @@ class config_map
         return m_empty;
     }
 
+    inline void set(const key_type& group, const key_type& key, const std::string& value) {
+        m_data[group][key] = value;
+    }
+
+    template<typename T>
+    inline T get_as(const key_type& group, const key_type& key) const {
+        auto& str = get(group, key);
+        if (!str.empty()) {
+            auto tmp = projection<T>(str);
+            if (tmp) return *tmp;
+        }
+        return T{};
+    }
     template<typename T>
     inline T get_or_else(const key_type& group,
                          const key_type& key,
@@ -80,7 +90,5 @@ class config_map
     container_type m_data;
 
 };
-
-//} } // namespace hamcast::util
 
 #endif // CONFIG_MAP_HPP

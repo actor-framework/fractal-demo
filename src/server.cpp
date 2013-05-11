@@ -38,10 +38,10 @@ void server::send_next_job(const actor_ptr& worker) {
 
     send(worker,
          atom("assign"),
-         ++m_next_id,
          width(fr),
          height(fr),
          m_iterations,
+         ++m_next_id,
          min_re(fr),
          max_re(fr),
          min_im(fr),
@@ -54,6 +54,9 @@ void server::init(actor_ptr image_receiver) {
             auto w = last_sender();
             if (w) {
                 link_to(w);
+                // send three initial jobs per worker to minimize wait latency
+                send_next_job(w);
+                send_next_job(w);
                 send_next_job(w);
             }
         },

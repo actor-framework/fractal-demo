@@ -57,6 +57,9 @@ int main(int argc, char** argv) {
         on_opt0('g', "no-gui",  &desc, "save images to local directory", "server") >> set_flag(no_gui)
     );
     if (!args_valid) print_desc_and_exit(&desc)();
+#   ifndef ENABLE_OPENCL
+    if (with_opencl) cerr << "opencl flag ignored (compiled without OpenCL support)" << endl;
+#   endif // ENABLE_OPENCL
     if (!is_server) {
         std::vector<actor_ptr> workers;
         for (size_t i = 0; i < num_workers; ++i) {

@@ -1,7 +1,7 @@
 #include "config.hpp"
 
-extern const char* image_format = "PNG";
-extern const char* image_file_ending = ".png";
+const char* image_format = "PNG";
+const char* image_file_ending = ".png";
 
 const std::uint32_t default_width = 1024;
 const std::uint32_t default_height = 768;

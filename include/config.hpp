@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-using float_type = long double;
+using float_type = float;
 
 extern const char* image_format;
 extern const char* image_file_ending;

@@ -88,7 +88,8 @@ find_package (Boost COMPONENTS regex REQUIRED)
 # find opencl
 if (ENABLE_OPENCL)
    find_package(OPENCL REQUIRED)
-   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_OPENCL")
+   add_definitions("-DENABLE_OPENCL")
+   #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_OPENCL")
 endif (ENABLE_OPENCL)
 
 # by default only QtCore and QtGui modules are enabled

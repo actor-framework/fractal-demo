@@ -156,10 +156,9 @@ int main(int argc, char** argv) {
     }
     if (no_gui) {
         send(master, atom("init"), self);
-        uint32_t last_id = 0;
-        set<uint32_t> missing;
-        bool running = true;
-        while (running || !missing.empty()) receive (
+        uint32_t received_images = 0;
+        uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
+        receive_while(gref(received_images) < gref(total_images)) (
             on(atom("result"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
                 auto img = QImage::fromData(ba, image_format);
                 std::ostringstream fname;
@@ -172,16 +171,10 @@ int main(int argc, char** argv) {
                     cerr << "could not open file: " << fname.str() << endl;
                 }
                 else img.save(&f, image_format);
-                missing.erase(img_id);
-                if (last_id + 1 != img_id) {
-                    for (auto i = last_id + 1; i < img_id; ++i) {
-                        missing.insert(i);
-                    }
-                }
-                last_id = img_id;
+                ++received_images;
             },
-            on(atom("done")) >> [&] {
-                running = false;
+            on(atom("done"), arg_match) >> [&](uint32_t num_images) {
+                total_images = num_images;
             },
             others() >> [] {
                 cout << "main:unexpected: "

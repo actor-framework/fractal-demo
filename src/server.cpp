@@ -65,7 +65,7 @@ void server::init(actor_ptr image_receiver) {
             send_tuple(image_receiver, last_dequeued());
             send_next_job(last_sender());
             if (m_stream.at_end()) {
-                send(image_receiver, atom("done"));
+                send(image_receiver, atom("done"), m_next_id);
             }
         },
         on(atom("resize"), arg_match) >> [=](uint32_t new_width, uint32_t new_height) {

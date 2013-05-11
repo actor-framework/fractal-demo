@@ -54,9 +54,9 @@ constexpr const char* kernel_source = R"__(
     __kernel void mandelbrot(__global float* config,
                              __global int* output)
     {
-        uint32_t iterations = config[0];
-        uint32_t width = config[1];
-        uint32_t height = config[2];
+        unsigned iterations = config[0];
+        unsigned width = config[1];
+        unsigned height = config[2];
 
         float min_re = config[3];
         float max_re = config[4];
@@ -66,13 +66,13 @@ constexpr const char* kernel_source = R"__(
         float re_factor = (max_re-min_re)/(width-1);
         float im_factor = (max_im-min_im)/(height-1);
 
-        uint32_t x = get_global_id(0);
-        uint32_t y = get_global_id(1);
+        unsigned x = get_global_id(0);
+        unsigned y = get_global_id(1);
         float z_re = min_re + x*re_factor;
         float z_im = max_im - y*im_factor;
         float const_re = z_re;
         float const_im = z_im;
-        uint32_t cnt = 0;
+        unsigned cnt = 0;
         float cond = 0;
         do {
             float tmp_re = z_re;
@@ -92,7 +92,7 @@ using palette_ptr = shared_ptr<vector<QColor>>;
 
 void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
     become (
-        on(atom("assert"), clwidth, clheight, cliterations, arg_match).when(gval(palette != nullptr) == true)
+        on(atom("assign"), clwidth, clheight, cliterations, arg_match).when(gval(palette != nullptr) == true)
         >> [=](uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
             vector<float> cljob;
             cljob.reserve(7);
@@ -105,7 +105,7 @@ void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_
             cljob.push_back(max_im);
             auto hdl = self->make_response_handle();
             sync_send(clworker, std::move(cljob)).then (
-                on_arg_match >> [&](const vector<int>& result) {
+                on_arg_match >> [=](const vector<int>& result) {
                     QImage image{static_cast<int>(clwidth),
                                  static_cast<int>(clheight),
                                  QImage::Format_RGB32};
@@ -118,7 +118,7 @@ void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_
                 }
             );
         },
-        on(atom("assert"), arg_match)
+        on(atom("assign"), arg_match)
         >> [=](uint32_t width, uint32_t height, uint32_t iterations, uint32_t, float_type, float_type, float_type, float_type) {
             palette_ptr ptr = palette;
             if (!ptr) ptr = make_shared<vector<QColor>>();
@@ -128,6 +128,10 @@ void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_
             clbroker(width, height, iterations, w, ptr);
             // re-invoke message using the new behavior
             (self->bhvr_stack().back())(self->last_dequeued());
+        },
+        others() >> [=] {
+            aout << "Unexpected message: '"
+                 << to_string(self->last_dequeued()) << "'.\n";
         }
     );
 }
@@ -192,7 +196,7 @@ void client::init() {
             }
             reply_tuple(response_from_image(image, image_id));
         },
-        others() >> [=]() {
+        others() >> [=] {
             aout << "Unexpected message: '"
                  << to_string(last_dequeued()) << "'.\n";
         }

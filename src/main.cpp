@@ -122,9 +122,14 @@ int main(int argc, char** argv) {
     // else: server mode
     // read config
     config_map ini;
-    ini.read_ini("fractal_server.ini");
-    if (!ini.has_group("fractals")) {
-        cerr << "*** warning: no [fractals] section found in ini file" << endl;
+    try {
+        ini.read_ini("fractal_server.ini");
+        if (!ini.has_group("fractals")) {
+            cerr << "*** warning: no [fractals] section found in ini file" << endl;
+        }
+    }
+    catch (exception&) {
+        cout << "*** no config file found (use defaults)" << endl;
     }
     // launch and publish master (waits for 'init' message)
     auto master = spawn<server>(ini);

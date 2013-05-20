@@ -152,7 +152,7 @@ void client::init() {
                                              float_type max_im) {
             reply_tuple(
                 response_from_image(
-                    calculate_palette(m_palette, width, height, iterations,
+                    calculate_fractal(m_palette, width, height, iterations,
                                       min_re, max_re, min_im, max_im),
                 image_id)
             );

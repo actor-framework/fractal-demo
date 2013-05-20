@@ -19,7 +19,7 @@ inline void calculate_palette(std::vector<QColor>& storage, uint32_t iterations)
 }
 
 template<typename FloatType>
-QImage calculate_palette(std::vector<QColor>& palette,
+QImage calculate_fractal(std::vector<QColor>& palette,
                          uint32_t width, uint32_t height, uint32_t iterations,
                          FloatType min_re, FloatType max_re,
                          FloatType min_im, FloatType max_im) {

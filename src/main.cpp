@@ -57,10 +57,6 @@ int main(int argc, char** argv) {
         on_opt0('g', "no-gui",  &desc, "save images to local directory", "server") >> set_flag(no_gui)
     );
     if (!args_valid) print_desc_and_exit(&desc)();
-#   ifndef ENABLE_OPENCL
-    if (with_opencl) cerr << "opencl flag ignored (compiled without OpenCL support)" << endl;
-#   endif // ENABLE_OPENCL
-    cout << "opencl enabled: " << boolalpha << with_opencl << endl;
     if (!is_server) {
         std::vector<actor_ptr> workers;
         for (size_t i = 0; i < num_workers; ++i) {
@@ -86,7 +82,6 @@ int main(int argc, char** argv) {
         };
         auto send_workers = [&](const actor_ptr& master) {
             for (auto w : workers) {
-                cout << "send 'newWorker' message" << endl;
                 send_as(w, master, atom("newWorker"));
             }
         };
@@ -100,8 +95,6 @@ int main(int argc, char** argv) {
             receive_loop (
                 on(atom("getWorkers")) >> [&] {
                     auto master = self->last_sender();
-                    //cout << "received {'getWorkers'} from "
-                    //     << to_string(master) << endl;
                     send_workers(master);
                 },
                 others() >> [] {
@@ -127,15 +120,8 @@ int main(int argc, char** argv) {
     // else: server mode
     // read config
     config_map ini;
-    try {
-        ini.read_ini("fractal_server.ini");
-        if (!ini.has_group("fractals")) {
-            cerr << "*** warning: no [fractals] section found in ini file" << endl;
-        }
-    }
-    catch (exception&) {
-        cout << "*** no config file found (use defaults)" << endl;
-    }
+    try { ini.read_ini("fractal_server.ini"); }
+    catch (exception&) { /* no config file found (use defaults)" */ }
     // launch and publish master (waits for 'init' message)
     auto master = spawn<server>(ini);
     //TODO: this vector is completely useless to the application,
@@ -195,7 +181,7 @@ int main(int argc, char** argv) {
                 total_images = num_images;
             },
             others() >> [] {
-                cout << "main:unexpected: "
+                cerr << "main:unexpected: "
                      << to_string(self->last_dequeued()) << endl;
             }
         );

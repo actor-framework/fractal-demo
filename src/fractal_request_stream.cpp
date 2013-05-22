@@ -1,5 +1,4 @@
 #include <cmath>
-#include <iostream>
 #include <algorithm>
 
 #include "fractal_request_stream.hpp"
@@ -93,7 +92,6 @@ void no_op(const frstream*, fractal_request&) {
 void reset_op(const frstream* s, fractal_request& fr) {
     auto half_width  = fabs(s->max_re() + (-1 * s->min_re())) / 2;
     auto half_height = fabs(s->max_im() + (-1 * s->min_im())) / 2;
-cout << "half_width: " << half_width << "; half_height: " << half_height << endl;
     set_fr(fr, 0, half_width, 0, half_height);
 }
 

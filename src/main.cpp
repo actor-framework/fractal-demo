@@ -84,7 +84,12 @@ int main(int argc, char** argv) {
             shutdown();
             exit(-1);
         };
-        actor_ptr master;
+        auto send_workers = [&](const actor_ptr& master) {
+            for (auto w : workers) {
+                cout << "send 'newWorker' message" << endl;
+                send_as(w, master, atom("newWorker"));
+            }
+        };
         if (publish_workers) {
             try { publish(self, port); }
             catch (std::exception& e) {
@@ -92,11 +97,12 @@ int main(int argc, char** argv) {
                      << e.what() << endl;
                 emergency_shutdown();
             }
-            receive_while(gref(master) == nullptr) (
+            receive_loop (
                 on(atom("getWorkers")) >> [&] {
-                    master = self->last_sender();
-                    cout << "received {'getWorkers'} from "
-                         << to_string(master) << endl;
+                    auto master = self->last_sender();
+                    //cout << "received {'getWorkers'} from "
+                    //     << to_string(master) << endl;
+                    send_workers(master);
                 },
                 others() >> [] {
                     cerr << "unexpected: "
@@ -105,15 +111,14 @@ int main(int argc, char** argv) {
             );
         }
         else {
-            try { master = remote_actor(host, port); }
+            try {
+                auto master = remote_actor(host, port);
+                send_workers(master);
+            }
             catch (std::exception& e) {
                 cerr << "unable to connect to server: " << e.what() << endl;
                 emergency_shutdown();
             }
-        }
-        for (auto w : workers) {
-            cout << "send 'newWorker' message" << endl;
-            send_as(w, master, atom("newWorker"));
         }
         await_all_others_done();
         shutdown();

@@ -59,18 +59,17 @@ int main(int argc, char** argv) {
     if (!args_valid) print_desc_and_exit(&desc)();
     if (!is_server) {
         std::vector<actor_ptr> workers;
+#       ifdef ENABLE_OPENCL
+        // spawn at most one GPU worker
+        if (with_opencl) {
+            cout << "add an OpenCL worker" << endl;
+            workers.push_back(spawn_opencl_client());
+            if (num_workers > 1) --num_workers;
+        }
+#       endif // ENABLE_OPENCL
         for (size_t i = 0; i < num_workers; ++i) {
-#           ifdef ENABLE_OPENCL
-            if (with_opencl) {
-                cout << "added an OpenCL worker" << endl;
-                workers.push_back(spawn_opencl_client());
-            }
-            else
-#           endif // ENABLE_OPENCL
-            /* else */ {
-                cout << "added a CPU worker" << endl;
-                workers.push_back(spawn<client>());
-            }
+            cout << "add a CPU worker" << endl;
+            workers.push_back(spawn<client>());
         }
         auto emergency_shutdown = [&] {
             for (auto w : workers) {

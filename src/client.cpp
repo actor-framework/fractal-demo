@@ -79,54 +79,79 @@ constexpr const char* kernel_source = R"__(
 
 using palette_ptr = shared_ptr<vector<QColor>>;
 
-void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
-    become (
-        on(atom("assign"), clwidth, clheight, cliterations, arg_match).when(gval(palette != nullptr) == true)
-        >> [=](uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
-            vector<float> cljob;
-            cljob.reserve(7);
-            cljob.push_back(cliterations);
-            cljob.push_back(clwidth);
-            cljob.push_back(clheight);
-            cljob.push_back(min_re);
-            cljob.push_back(max_re);
-            cljob.push_back(min_im);
-            cljob.push_back(max_im);
-            auto hdl = self->make_response_handle();
-            sync_send(clworker, std::move(cljob)).then (
-                on_arg_match >> [=](const vector<int>& result) {
-                    QImage image{static_cast<int>(clwidth),
-                                 static_cast<int>(clheight),
-                                 QImage::Format_RGB32};
-                    for (uint32_t y = 0; y < clheight; ++y) {
-                        for (uint32_t x = 0; x < clwidth; ++x) {
-                            image.setPixel(x,y,(*palette)[result[x+y*clwidth]].rgb());
-                        }
-                    }
-                    reply_tuple_to(hdl, response_from_image(image, image_id));
+class clbroker : public event_based_actor {
+
+ public:
+
+    void init() {
+        become (
+            on(atom("assign"), arg_match)
+            >> [=](uint32_t width, uint32_t height, uint32_t iterations, uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
+                m_current_server = self->last_sender();
+                if (   width != clwidth
+                    || height != clheight
+                    || iterations != cliterations) {
+                    calculate_palette(palette, iterations);
+                    clworker = spawn_cl<int*(float*)>(kernel_source, "mandelbrot",
+                                                      {width, height});
+                    clwidth = width;
+                    clheight = height;
+                    cliterations = iterations;
                 }
-            );
-        },
-        on(atom("assign"), arg_match)
-        >> [=](uint32_t width, uint32_t height, uint32_t iterations, uint32_t, float_type, float_type, float_type, float_type) {
-            palette_ptr ptr = palette;
-            if (!ptr) ptr = make_shared<vector<QColor>>();
-            calculate_palette(*ptr, iterations);
-            auto w = spawn_cl<vector<int>(vector<float>)>(kernel_source, "mandelbrot",
-                                                          {width, height});
-            clbroker(width, height, iterations, w, ptr);
-            // re-invoke message using the new behavior
-            (self->bhvr_stack().back())(self->last_dequeued());
-        },
-        others() >> [=] {
-            aout << "Unexpected message: '"
-                 << to_string(self->last_dequeued()) << "'.\n";
-        }
-    );
-}
+                clforward(image_id, min_re, max_re, min_im, max_im);
+            },
+            others() >> [=] {
+                aout << "Unexpected message: '"
+                     << to_string(self->last_dequeued()) << "'.\n";
+            }
+        );
+    }
+
+    clbroker() : clwidth(0), clheight(0), cliterations(0) { }
+
+ private:
+
+    void clforward(uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
+        m_current_server = self->last_sender();
+        vector<float> cljob;
+        cljob.reserve(7);
+        cljob.push_back(cliterations);
+        cljob.push_back(clwidth);
+        cljob.push_back(clheight);
+        cljob.push_back(min_re);
+        cljob.push_back(max_re);
+        cljob.push_back(min_im);
+        cljob.push_back(max_im);
+        auto hdl = self->make_response_handle();
+        sync_send(clworker, std::move(cljob)).then (
+            on_arg_match >> [=](const vector<int>& result) {
+                QImage image{static_cast<int>(clwidth),
+                             static_cast<int>(clheight),
+                             QImage::Format_RGB32};
+                for (uint32_t y = 0; y < clheight; ++y) {
+                    for (uint32_t x = 0; x < clwidth; ++x) {
+                        image.setPixel(x,y,palette[result[x+y*clwidth]].rgb());
+                    }
+                }
+                reply_tuple_to(hdl, response_from_image(image, image_id));
+            }
+        );
+    }
+
+    uint32_t clwidth;
+    uint32_t clheight;
+    uint32_t cliterations;
+    actor_ptr clworker;
+    actor_ptr m_current_server;
+    std::vector<QColor> palette;
+
+};
+
+//void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
+//}
 
 actor_ptr spawn_opencl_client() {
-    return spawn(clbroker, 0, 0, 0, nullptr, nullptr);
+    return spawn<clbroker>();
 }
 
 #else
@@ -150,6 +175,7 @@ void client::init() {
                                              float_type max_re,
                                              float_type min_im,
                                              float_type max_im) {
+            m_current_server = self->last_sender();
             reply_tuple(
                 response_from_image(
                     calculate_fractal(m_palette, width, height, iterations,

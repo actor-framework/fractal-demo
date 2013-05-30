@@ -18,6 +18,7 @@ class client : public cppa::event_based_actor {
 
  private:
 
+    cppa::actor_ptr m_current_server;
     std::vector<QColor> m_palette;
 
 };

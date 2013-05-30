@@ -33,7 +33,7 @@
 #include <fstream>
 #include <iostream>
 
-#include <boost/regex.hpp>
+//#include <boost/regex.hpp>
 
 #include "config_map.hpp"
 
@@ -43,6 +43,7 @@ namespace {
 
 typedef config_map::container_type container_type;
 
+/*
 typedef void (*regex_handler)(boost::smatch&, container_type&, string&);
 typedef pair<boost::regex, regex_handler> rx_handler_pair;
 typedef vector<rx_handler_pair> rx_handler_t;
@@ -91,10 +92,12 @@ void add_key_value_pair(boost::smatch& sm, container_type& cm, string& sec) {
     }
     kv_map[key] = value;
 }
+*/
 
 } // namespace <anonymous>
 
-void config_map::read_ini(const string& filename) {
+void config_map::read_ini(const string&) {
+    /*
     // stores current section
     string section;
     // INI line handler
@@ -132,4 +135,5 @@ void config_map::read_ini(const string& filename) {
                  << " of middleware.ini (skipped)" << endl;
         }
     }
+    */
 }

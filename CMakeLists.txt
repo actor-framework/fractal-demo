@@ -82,9 +82,6 @@ endif ()
 # find cppa
 find_package(LibCPPA REQUIRED)
 
-# find boost
-find_package (Boost COMPONENTS regex REQUIRED)
-
 # find opencl
 if (ENABLE_OPENCL)
    find_package(OPENCL REQUIRED)
@@ -119,7 +116,7 @@ QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} include/server.hpp incl
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
 # from qmake)
-INCLUDE_DIRECTORIES(. include ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE} ${Boost_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(. include ${CMAKE_BINARY_DIR} ${CPPA_INCLUDE} ${OPENCL_INCLUDE_DIRS})
 
 set(SOURCES
     src/config.cpp
@@ -136,5 +133,6 @@ set(SOURCES
     ${FRACTAL_CPPA_UI_HDRS})
 
 add_executable(fractal-cppa ${SOURCES})
-target_link_libraries(fractal-cppa ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES} ${Boost_REGEX_LIBRARY} ${OPENCL_LIBRARIES})
+target_link_libraries(fractal-cppa ${CMAKE_DL_LIBS} ${CPPA_LIBRARY} ${QT_LIBRARIES} ${OPENCL_LIBRARIES})
 add_dependencies(fractal-cppa all_examples)
+

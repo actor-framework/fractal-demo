@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     // parse command line options
     string host;
     uint16_t port = 20283;
-    size_t num_workers = 1;
+    size_t num_workers = 0;
     bool no_gui = false;
     bool is_server = false;
     bool with_opencl = false;
@@ -58,13 +58,14 @@ int main(int argc, char** argv) {
     );
     if (!args_valid) print_desc_and_exit(&desc)();
     if (!is_server) {
+        if (num_workers == 0) num_workers = 1;
         std::vector<actor_ptr> workers;
 #       ifdef ENABLE_OPENCL
         // spawn at most one GPU worker
         if (with_opencl) {
             cout << "add an OpenCL worker" << endl;
             workers.push_back(spawn_opencl_client());
-            if (num_workers > 1) --num_workers;
+            if (num_workers > 0) --num_workers;
         }
 #       endif // ENABLE_OPENCL
         for (size_t i = 0; i < num_workers; ++i) {
@@ -133,6 +134,7 @@ int main(int argc, char** argv) {
     //      'unused' network connections are detected
     vector<actor_ptr> remotes;
     if (not nodes_list.empty()) {
+        cout << "connect to nodes..." << endl;
         auto nl = split(nodes_list, ',');
         for (auto& n : nl) {
             match(split(n, ':')) (
@@ -155,6 +157,20 @@ int main(int argc, char** argv) {
         catch (std::exception& e) {
             cerr << "unable to publish actor: " << e.what() << endl;
             return -1;
+        }
+    }
+    if (num_workers > 0) {
+#       ifdef ENABLE_OPENCL
+        // spawn at most one GPU worker
+        if (with_opencl) {
+            cout << "add an OpenCL worker" << endl;
+            send_as(spawn_opencl_client(), master, atom("newWorker"));
+            if (num_workers > 0) --num_workers;
+        }
+#       endif // ENABLE_OPENCL
+        for (size_t i = 0; i < num_workers; ++i) {
+            cout << "add a CPU worker" << endl;
+            send_as(spawn<client>(), master, atom("newWorker"));
         }
     }
     if (no_gui) {

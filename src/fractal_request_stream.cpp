@@ -222,9 +222,11 @@ void fractal_request_stream::add_chain(std::vector<std::pair<float_type,float_ty
 
 void fractal_request_stream::loop_stack() {
     std::vector<std::pair<float_type,float_type>> chain;
-    chain.emplace_back(-1.86572513851221765677, 0.0       );
-    chain.emplace_back(-0.7458555,              0.10550365);
-    chain.emplace_back(-1.86572513851221765677, 0.0       );
+//    chain.emplace_back(-1.86572513851221765677, 0.0       );
+    chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
+    chain.emplace_back(-0.7458555,                 0.10550365);
+//    chain.emplace_back(-1.86572513851221765677, 0.0       );
+    chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
     chain.emplace_back(-0.7458555,              0.10550365);
     add_chain(chain, 100);
     m_operations.emplace_back(reset_op, do_once);

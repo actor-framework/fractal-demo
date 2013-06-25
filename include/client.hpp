@@ -8,7 +8,7 @@
 
 #include "cppa/cppa.hpp"
 
-cppa::actor_ptr spawn_opencl_client();
+cppa::actor_ptr spawn_opencl_client(uint32_t);
 
 class client : public cppa::event_based_actor {
 

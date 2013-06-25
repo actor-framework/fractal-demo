@@ -23,6 +23,9 @@ using namespace cppa;
 using namespace std;
 
 void server::send_next_job(const actor_ptr& worker) {
+    if (worker == nullptr) {
+        cerr << "send_next_job(nullptr) called" << endl;
+    }
     if (worker == nullptr || not m_stream.next()) return;
     auto& fr = m_stream.request();
 

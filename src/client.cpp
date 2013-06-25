@@ -92,7 +92,7 @@ class clbroker : public event_based_actor {
                     || height != clheight
                     || iterations != cliterations) {
                     calculate_palette(palette, iterations);
-                    clworker = spawn_cl<int*(float*)>(kernel_source, "mandelbrot",
+                    clworker = spawn_cl<int*(float*)>(clprog, "mandelbrot",
                                                       {width, height});
                     clwidth = width;
                     clheight = height;
@@ -107,7 +107,8 @@ class clbroker : public event_based_actor {
         );
     }
 
-    clbroker() : clwidth(0), clheight(0), cliterations(0) { }
+    clbroker(uint32_t device_id)
+    : clprog(opencl::program::create(kernel_source, device_id)), clwidth(0), clheight(0), cliterations(0) { }
 
  private:
 
@@ -138,6 +139,7 @@ class clbroker : public event_based_actor {
         );
     }
 
+    opencl::program clprog;
     uint32_t clwidth;
     uint32_t clheight;
     uint32_t cliterations;
@@ -150,13 +152,13 @@ class clbroker : public event_based_actor {
 //void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
 //}
 
-actor_ptr spawn_opencl_client() {
-    return spawn<clbroker>();
+actor_ptr spawn_opencl_client(uint32_t device_id) {
+    return spawn<clbroker>(device_id);
 }
 
 #else
 
-cppa::actor_ptr spawn_opencl_client() {
+cppa::actor_ptr spawn_opencl_client(uint32_t) {
     throw std::logic_error("spawn_opencl_client: compiled wo/ OpenCL");
 }
 

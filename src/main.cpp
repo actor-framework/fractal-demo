@@ -40,6 +40,7 @@ int main(int argc, char** argv) {
     bool is_server = false;
     bool with_opencl = false;
     bool publish_workers = false;
+    uint32_t opencl_device_id = 0;
     std::string nodes_list;
     options_description desc;
     bool args_valid = match_stream<string>(argv + 1, argv + argc) (
@@ -47,6 +48,7 @@ int main(int argc, char** argv) {
         on_opt0('s', "server",  &desc, "run in server mode",          "general") >> set_flag(is_server),
         on_opt1('p', "port",    &desc, "set port (default: 20283)",   "general") >> rd_arg(port),
         on_opt0('h', "help",    &desc, "print this text",             "general") >> print_desc_and_exit(&desc),
+        on_opt1('d', "device",  &desc, "set OpenCL device",           "general") >> rd_arg(opencl_device_id),
         // client options
         on_opt1('H', "host",    &desc, "set server host",             "client") >> rd_arg(host),
         on_opt1('w', "worker",  &desc, "number workers (default: 1)", "client") >> rd_arg(num_workers),
@@ -64,7 +66,7 @@ int main(int argc, char** argv) {
         // spawn at most one GPU worker
         if (with_opencl) {
             cout << "add an OpenCL worker" << endl;
-            workers.push_back(spawn_opencl_client());
+            workers.push_back(spawn_opencl_client(opencl_device_id));
             if (num_workers > 0) --num_workers;
         }
 #       endif // ENABLE_OPENCL
@@ -164,7 +166,7 @@ int main(int argc, char** argv) {
         // spawn at most one GPU worker
         if (with_opencl) {
             cout << "add an OpenCL worker" << endl;
-            send_as(spawn_opencl_client(), master, atom("newWorker"));
+            send_as(spawn_opencl_client(opencl_device_id), master, atom("newWorker"));
             if (num_workers > 0) --num_workers;
         }
 #       endif // ENABLE_OPENCL

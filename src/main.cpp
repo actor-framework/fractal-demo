@@ -32,6 +32,11 @@ int main(int argc, char** argv) {
     announce<vector<int>>();
     announce<vector<float>>();
     announce(typeid(QByteArray), create_unique<q_byte_array_info>());
+    // sent from server to client
+    announce_tuple<atom_value, uint32_t, uint32_t, uint32_t, uint32_t,
+                   float_type, float_type, float_type, float_type>();
+    // sent from client to server
+    announce_tuple<atom_value, uint32_t, QByteArray>();
     // parse command line options
     string host;
     uint16_t port = 20283;

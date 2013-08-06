@@ -19,10 +19,6 @@
 #include "fractal_request.hpp"
 #include "fractal_request_stream.hpp"
 
-class server;
-
-
-
 class server : public cppa::event_based_actor {
 
  public:

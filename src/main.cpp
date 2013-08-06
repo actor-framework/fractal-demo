@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     // announce some messaging types
     announce<vector<int>>();
     announce<vector<float>>();
-    announce(typeid(QByteArray), new q_byte_array_info);
+    announce(typeid(QByteArray), create_unique<q_byte_array_info>());
     // parse command line options
     string host;
     uint16_t port = 20283;

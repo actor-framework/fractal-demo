@@ -141,7 +141,6 @@ int main(int argc, char** argv) {
     //      'unused' network connections are detected
     vector<actor_ptr> remotes;
     if (not nodes_list.empty()) {
-        cout << "connect to nodes..." << endl;
         auto nl = split(nodes_list, ',');
         for (auto& n : nl) {
             match(split(n, ':')) (

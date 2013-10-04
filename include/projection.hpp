@@ -3,10 +3,10 @@
 
 #include <string>
 #include <type_traits>
-#include "cppa/option.hpp"
+#include "cppa/optional.hpp"
 
 template<typename T>
-cppa::option<T> projection(const std::string& arg) {
+cppa::optional<T> projection(const std::string& arg) {
     char* endptr = nullptr;
     int result = std::is_integral<T>::value
                ? static_cast<T>(strtoll(arg.c_str(), &endptr, 10))

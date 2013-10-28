@@ -11,6 +11,7 @@
 #include "server.hpp"
 #include "client.hpp"
 #include "mainwidget.hpp"
+#include "ui_controller.h"
 #include "q_byte_array_info.hpp"
 
 using namespace std;
@@ -44,6 +45,7 @@ int main(int argc, char** argv) {
     bool no_gui = false;
     bool is_server = false;
     bool with_opencl = false;
+    bool is_controller = false;
     bool publish_workers = false;
     uint32_t opencl_device_id = 0;
     std::string nodes_list;
@@ -61,10 +63,12 @@ int main(int argc, char** argv) {
         on_opt0('u', "publish", &desc, "don't connect to server; only publish worker(s) at given port", "client") >> set_flag(publish_workers),
         // server options
         on_opt1('n', "nodes",   &desc, "use given list (host:port notation) as workes", "server") >> rd_arg(nodes_list),
-        on_opt0('g', "no-gui",  &desc, "save images to local directory", "server") >> set_flag(no_gui)
+        on_opt0('g', "no-gui",  &desc, "save images to local directory", "server") >> set_flag(no_gui),
+        // controller
+        on_opt0('c', "controller", &desc, "start a controller", "controller") >> set_flag(is_controller)
     );
     if (!args_valid) print_desc_and_exit(&desc)();
-    if (!is_server) {
+    if (!is_server && !is_controller) {
         if (num_workers == 0) num_workers = 1;
         std::vector<actor_ptr> workers;
 #       ifdef ENABLE_OPENCL
@@ -124,106 +128,124 @@ int main(int argc, char** argv) {
         shutdown();
         return 0;
     }
-    // else: server mode
-    // read config
-    config_map ini;
-    try { ini.read_ini("fractal_server.ini"); }
-    catch (exception&) { /* no config file found (use defaults)" */ }
-    // launch and publish master (waits for 'init' message)
-    auto master = spawn<server>(ini);
-    //TODO: this vector is completely useless to the application,
-    //      BUT: libcppa will close the network connection, because the app.
-    //      calls ptr = remote_actor(..), sends a message and then ptr goes
-    //      out of scope, i.e., no local reference to the remote actor
-    //      remains ... however, the remote node will eventually answer to
-    //      the message (which will fail, because the network connection
-    //      was closed *sigh*); long story short: fix it by improve how
-    //      'unused' network connections are detected
-    vector<actor_ptr> remotes;
-    if (not nodes_list.empty()) {
-        auto nl = split(nodes_list, ',');
-        for (auto& n : nl) {
-            match(split(n, ':')) (
-                on(val<string>, projection<uint16_t>) >> [&](const string& host, std::uint16_t p) {
-                    try {
-                        auto ptr = remote_actor(host, p);
-                        remotes.push_back(ptr);
-                        send_as(master, ptr, atom("getWorkers"));
+    else if (is_server && !is_controller) {
+        // else: server mode
+        // read config
+        config_map ini;
+        try { ini.read_ini("fractal_server.ini"); }
+        catch (exception&) { /* no config file found (use defaults)" */ }
+        // launch and publish master (waits for 'init' message)
+        auto master = spawn<server>(ini);
+        //TODO: this vector is completely useless to the application,
+        //      BUT: libcppa will close the network connection, because the app.
+        //      calls ptr = remote_actor(..), sends a message and then ptr goes
+        //      out of scope, i.e., no local reference to the remote actor
+        //      remains ... however, the remote node will eventually answer to
+        //      the message (which will fail, because the network connection
+        //      was closed *sigh*); long story short: fix it by improve how
+        //      'unused' network connections are detected
+        vector<actor_ptr> remotes;
+        if (not nodes_list.empty()) {
+            auto nl = split(nodes_list, ',');
+            for (auto& n : nl) {
+                match(split(n, ':')) (
+                    on(val<string>, projection<uint16_t>) >> [&](const string& host, std::uint16_t p) {
+                        try {
+                            auto ptr = remote_actor(host, p);
+                            remotes.push_back(ptr);
+                            send_as(master, ptr, atom("getWorkers"));
+                        }
+                        catch (std::exception& e) {
+                            cerr << "unable to connect to " << host
+                                 << " on port " << p << endl;
+                        }
                     }
-                    catch (std::exception& e) {
-                        cerr << "unable to connect to " << host
-                             << " on port " << p << endl;
+                );
+            }
+        }
+        else {
+            try { publish(master, port); }
+            catch (std::exception& e) {
+                cerr << "unable to publish actor: " << e.what() << endl;
+                return -1;
+            }
+        }
+        if (num_workers > 0) {
+    #       ifdef ENABLE_OPENCL
+            // spawn at most one GPU worker
+            if (with_opencl) {
+                cout << "add an OpenCL worker" << endl;
+                send_as(spawn_opencl_client(opencl_device_id), master, atom("newWorker"));
+                if (num_workers > 0) --num_workers;
+            }
+    #       endif // ENABLE_OPENCL
+            for (size_t i = 0; i < num_workers; ++i) {
+                cout << "add a CPU worker" << endl;
+                send_as(spawn<client>(), master, atom("newWorker"));
+            }
+        }
+        if (no_gui) {
+            send(master, atom("init"), self);
+            uint32_t received_images = 0;
+            uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
+            receive_while(gref(received_images) < gref(total_images)) (
+                on(atom("result"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
+                    auto img = QImage::fromData(ba, image_format);
+                    std::ostringstream fname;
+                    fname.width(4);
+                    fname.fill('0');
+                    fname.setf(ios_base::right);
+                    fname << img_id << image_file_ending;
+                    QFile f{fname.str().c_str()};
+                    if (!f.open(QIODevice::WriteOnly)) {
+                        cerr << "could not open file: " << fname.str() << endl;
                     }
+                    else img.save(&f, image_format);
+                    ++received_images;
+                },
+                on(atom("done"), arg_match) >> [&](uint32_t num_images) {
+                    total_images = num_images;
+                },
+                others() >> [] {
+                    cerr << "main:unexpected: "
+                         << to_string(self->last_dequeued()) << endl;
                 }
             );
         }
-    }
-    else {
-        try { publish(master, port); }
-        catch (std::exception& e) {
-            cerr << "unable to publish actor: " << e.what() << endl;
-            return -1;
+        else {
+            // launch gui
+            QApplication app{argc, argv};
+            QMainWindow window;
+            Ui::Main main;
+            main.setupUi(&window);
+            main.mainWidget->set_server(master);
+            window.resize(ini.get_as<int>("fractals", "width"),
+                          ini.get_as<int>("fractals", "height"));
+            send_as(nullptr, master, atom("init"), main.mainWidget->as_actor());
+            //window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+            window.show();
+            app.quitOnLastWindowClosed();
+            app.exec();
         }
+        send_as(nullptr, master, atom("quit"));
+        await_all_others_done();
+        shutdown();
     }
-    if (num_workers > 0) {
-#       ifdef ENABLE_OPENCL
-        // spawn at most one GPU worker
-        if (with_opencl) {
-            cout << "add an OpenCL worker" << endl;
-            send_as(spawn_opencl_client(opencl_device_id), master, atom("newWorker"));
-            if (num_workers > 0) --num_workers;
-        }
-#       endif // ENABLE_OPENCL
-        for (size_t i = 0; i < num_workers; ++i) {
-            cout << "add a CPU worker" << endl;
-            send_as(spawn<client>(), master, atom("newWorker"));
-        }
-    }
-    if (no_gui) {
-        send(master, atom("init"), self);
-        uint32_t received_images = 0;
-        uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
-        receive_while(gref(received_images) < gref(total_images)) (
-            on(atom("result"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
-                auto img = QImage::fromData(ba, image_format);
-                std::ostringstream fname;
-                fname.width(4);
-                fname.fill('0');
-                fname.setf(ios_base::right);
-                fname << img_id << image_file_ending;
-                QFile f{fname.str().c_str()};
-                if (!f.open(QIODevice::WriteOnly)) {
-                    cerr << "could not open file: " << fname.str() << endl;
-                }
-                else img.save(&f, image_format);
-                ++received_images;
-            },
-            on(atom("done"), arg_match) >> [&](uint32_t num_images) {
-                total_images = num_images;
-            },
-            others() >> [] {
-                cerr << "main:unexpected: "
-                     << to_string(self->last_dequeued()) << endl;
-            }
-        );
-    }
-    else {
+    else { // is controller
         // launch gui
         QApplication app{argc, argv};
         QMainWindow window;
-        Ui::Main main;
-        main.setupUi(&window);
-        main.mainWidget->set_server(master);
-        window.resize(ini.get_as<int>("fractals", "width"),
-                      ini.get_as<int>("fractals", "height"));
-        send_as(nullptr, master, atom("init"), main.mainWidget->as_actor());
-        //window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        Ui::Controller controller;
+        controller.setupUi(&window);
+//        main.mainWidget->set_server(master);
+//        window.resize(ini.get_as<int>("fractals", "width"),
+//                      ini.get_as<int>("fractals", "height"));
+//        send_as(nullptr, master, atom("init"), main.mainWidget->as_actor());
+//        //window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();
     }
-    send_as(nullptr, master, atom("quit"));
-    await_all_others_done();
-    shutdown();
+
     return 0;
 }

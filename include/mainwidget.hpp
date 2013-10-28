@@ -8,8 +8,7 @@
 #include "cppa/cppa.hpp"
 #include "cppa/qtsupport/actor_widget_mixin.hpp"
 
-class MainWidget : public cppa::actor_widget_mixin<QWidget>
-{
+class MainWidget : public cppa::actor_widget_mixin<QWidget> {
     Q_OBJECT
 
  public slots:

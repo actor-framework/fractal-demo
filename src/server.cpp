@@ -38,35 +38,48 @@ void server::send_next_job(const actor_ptr& worker) {
 //             max_re(fr),
 //             min_im(fr),
 //             max_im(fr))) << endl;
-
+    auto next_id = ++m_next_id;
     send(worker,
          atom("assign"),
          width(fr),
          height(fr),
          m_iterations,
-         ++m_next_id,
+         next_id,
          min_re(fr),
          max_re(fr),
          min_im(fr),
          max_im(fr));
+    m_current_jobs.insert(make_pair(worker, next_id));
 }
 
 void server::init(actor_ptr image_receiver) {
     become (
-        on(atom("newWorker")) >> [=] {
+        on(atom("newWorker"), arg_match) >> [=] (bool is_opencl_enabled) {
             auto w = last_sender();
             if (w) {
                 link_to(w);
+                if (is_opencl_enabled) { ++m_max_opencl; }
+                else                   { ++m_max_normal; }
                 // send three initial jobs per worker to minimize wait latency
+//                send_next_job(w);
+//                send_next_job(w);
                 send_next_job(w);
-                send_next_job(w);
-                send_next_job(w);
+                if (is_opencl_enabled) { ++m_cur_opencl; }
+                else                   { ++m_cur_normal; }
             }
+        },
+        on(atom("limWorkers"), arg_match) >> [=] (uint32_t lim_normal,
+                                                  uint32_t lim_opencl) {
+            m_lim_normal = lim_normal;
+            m_lim_opencl = lim_opencl;
         },
         on(atom("quit")) >> [=] {
             quit();
         },
-        on(atom("result"), arg_match) >> [=](uint32_t, const QByteArray&) {
+        on(atom("result"), arg_match) >> [=](uint32_t, const QByteArray&,
+                                             bool is_opencl_enabled) {
+            if (is_opencl_enabled) { --m_cur_opencl; }
+            else                   { --m_cur_normal; }
             // don't use forward_to to hide workers
             send_tuple(image_receiver, last_dequeued());
             send_next_job(last_sender());
@@ -74,12 +87,19 @@ void server::init(actor_ptr image_receiver) {
                 send(image_receiver, atom("done"), m_next_id);
             }
         },
-        on(atom("resize"), arg_match) >> [=](uint32_t new_width, uint32_t new_height) {
+        on(atom("resize"), arg_match) >> [=](uint32_t new_width,
+                                             uint32_t new_height) {
             m_stream.resize(new_width, new_height);
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t err) {
             cout << "[!!!] Worker disconnectd: 0x"
                  << hex << err << "." << endl;
+            // todo decrement worker count accurdingly
+            auto w = m_current_jobs.find(last_sender());
+            if (w != m_current_jobs.end()) {
+                m_current_jobs.erase(w);
+                // todo remove from next picture list
+            }
         },
         others() >> [=] {
             cout << "[!!!] unexpected message: '"

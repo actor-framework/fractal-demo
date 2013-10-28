@@ -70,21 +70,25 @@ int main(int argc, char** argv) {
     if (!args_valid) print_desc_and_exit(&desc)();
     if (!is_server && !is_controller) {
         if (num_workers == 0) num_workers = 1;
-        std::vector<actor_ptr> workers;
+        std::vector<actor_ptr> normal_workers;
+        std::vector<actor_ptr> opencl_workers;
 #       ifdef ENABLE_OPENCL
         // spawn at most one GPU worker
         if (with_opencl) {
             cout << "add an OpenCL worker" << endl;
-            workers.push_back(spawn_opencl_client(opencl_device_id));
+            opencl_workers.push_back(spawn_opencl_client(opencl_device_id));
             if (num_workers > 0) --num_workers;
         }
 #       endif // ENABLE_OPENCL
         for (size_t i = 0; i < num_workers; ++i) {
             cout << "add a CPU worker" << endl;
-            workers.push_back(spawn<client>());
+            normal_workers.push_back(spawn<client>());
         }
         auto emergency_shutdown = [&] {
-            for (auto w : workers) {
+            for (auto w : normal_workers) {
+                send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
+            }
+            for (auto w : opencl_workers) {
                 send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
             }
             await_all_others_done();
@@ -92,7 +96,12 @@ int main(int argc, char** argv) {
             exit(-1);
         };
         auto send_workers = [&](const actor_ptr& master) {
-            for (auto w : workers) {
+            for (auto w : normal_workers) {
+                send_as(w, master, atom("newWorker"));
+            }
+        };
+        auto send_opencl_workers = [&](const actor_ptr& master) {
+            for (auto w : opencl_workers) {
                 send_as(w, master, atom("newWorker"));
             }
         };
@@ -118,6 +127,7 @@ int main(int argc, char** argv) {
             try {
                 auto master = remote_actor(host, port);
                 send_workers(master);
+                send_opencl_workers(master);
             }
             catch (std::exception& e) {
                 cerr << "unable to connect to server: " << e.what() << endl;
@@ -175,13 +185,15 @@ int main(int argc, char** argv) {
             // spawn at most one GPU worker
             if (with_opencl) {
                 cout << "add an OpenCL worker" << endl;
-                send_as(spawn_opencl_client(opencl_device_id), master, atom("newWorker"));
+                // last argument identifies worker as opencl-enabled
+                send_as(spawn_opencl_client(opencl_device_id), master, atom("newWorker"), true);
                 if (num_workers > 0) --num_workers;
             }
     #       endif // ENABLE_OPENCL
             for (size_t i = 0; i < num_workers; ++i) {
                 cout << "add a CPU worker" << endl;
-                send_as(spawn<client>(), master, atom("newWorker"));
+                // last argument identifies worker as normal worker
+                send_as(spawn<client>(), master, atom("newWorker"), false);
             }
         }
         if (no_gui) {
@@ -231,12 +243,13 @@ int main(int argc, char** argv) {
         await_all_others_done();
         shutdown();
     }
-    else { // is controller
+    else if (is_controller && !is_server) { // is controller
         // launch gui
         QApplication app{argc, argv};
         QMainWindow window;
         Ui::Controller controller;
         controller.setupUi(&window);
+        // todo initilize stuff
 //        main.mainWidget->set_server(master);
 //        window.resize(ini.get_as<int>("fractals", "width"),
 //                      ini.get_as<int>("fractals", "height"));
@@ -245,6 +258,9 @@ int main(int argc, char** argv) {
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();
+    }
+    else {
+        print_desc_and_exit(&desc)();
     }
 
     return 0;

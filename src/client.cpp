@@ -32,7 +32,8 @@ any_tuple response_from_image(QImage image, uint32_t image_id) {
     buf.open(QIODevice::WriteOnly);
     image.save(&buf, image_format);
     buf.close();
-    return make_any_tuple(atom("result"), image_id, std::move(ba));
+    // last argument identifies this worker as a "normal" actor
+    return make_any_tuple(atom("result"), image_id, std::move(ba), false);
 }
 
 #ifdef ENABLE_OPENCL
@@ -134,7 +135,8 @@ class clbroker : public event_based_actor {
                         image.setPixel(x,y,palette[result[x+y*clwidth]].rgb());
                     }
                 }
-                reply_tuple_to(hdl, response_from_image(image, image_id));
+                // last argument identifies this worker as an opencl-enabled actor
+                reply_tuple_to(hdl, response_from_image(image, image_id), true);
             }
         );
     }
@@ -178,7 +180,8 @@ void client::init() {
                                              float_type min_im,
                                              float_type max_im) {
             m_current_server = self->last_sender();
-            reply_tuple(
+            // was reply_tuple
+            return (
                 response_from_image(
                     calculate_fractal(m_palette, width, height, iterations,
                                       min_re, max_re, min_im, max_im),

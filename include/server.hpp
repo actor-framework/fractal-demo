@@ -53,6 +53,10 @@ class server : public cppa::event_based_actor {
     std::vector<cppa::actor_ptr> m_normal_actor_buffer;
     std::vector<cppa::actor_ptr> m_opencl_actor_buffer;
 
+    // all workers
+    std::set<cppa::actor_ptr> m_normal;
+    std::set<cppa::actor_ptr> m_opencl;
+
     // distributed jobs
     std::map<cppa::actor_ptr, std::uint32_t> m_current_jobs;
 

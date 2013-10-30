@@ -1,6 +1,7 @@
 #ifndef CONTROLLERWIDGET_HPP
 #define CONTROLLERWIDGET_HPP
 
+#include <vector>
 #include <QWidget>
 #include <QSlider>
 
@@ -15,13 +16,14 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     explicit ControllerWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
 
-    inline void set_controller(const cppa::actor_ptr& ptr) { m_controller = ptr; }
+    inline void set_master(const cppa::actor_ptr& ptr) { m_master = ptr; }
+    void set_resolutions(std::vector<std::pair<std::uint32_t, std::uint32_t>> resolutions);
 
  public slots:
 
     void adjustGPULimit(int newLimit);
     void adjustCPULimit(int newLimit);
-    void adjustResolution();
+    void adjustResolution(int idx);
 
  private:
 
@@ -44,6 +46,10 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
         return get(m_gpu_slider, "gpu_slider");
     }
 
+    inline QSlider* resolution_slider() {
+        return get(m_resolution_slider, "res_slider");
+    }
+
     inline void set_cpu_max(std::uint32_t max) {
         cpu_slider()->setRange(0, static_cast<int>(max));
     }
@@ -55,12 +61,13 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     typedef cppa::actor_widget_mixin<QWidget> super;
 
-    cppa::actor_ptr m_controller;
+    cppa::actor_ptr m_master;
 
     QSlider* m_cpu_slider;
     QSlider* m_gpu_slider;
+    QSlider* m_resolution_slider;
 
-
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;
 };
 
 #endif // CONTROLLERWIDGET_HPP

@@ -111,7 +111,7 @@ QT4_ADD_RESOURCES( FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} )
 QT4_WRAP_UI( FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS} )
 
 # and finally this will run moc:
-QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} include/server.hpp include/imagelabel.h include/mainwidget.hpp include/controllerwidget.hpp) #include/controller.hpp
+QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} include/server.hpp include/imagelabel.h include/mainwidget.hpp include/controllerwidget.hpp)
 
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
@@ -128,7 +128,6 @@ set(SOURCES
     src/config_map.cpp
     src/client.cpp
     src/server.cpp
-    src/controller.cpp
     src/fractal_request_stream.cpp
     ${FRACTAL_CPPA_MOC_SRCS}
     ${FRACTAL_CPPA_RC_SRCS}

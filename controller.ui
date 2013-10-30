@@ -25,6 +25,13 @@
     </property>
     <layout class="QGridLayout" name="gridLayout">
      <item row="1" column="0">
+      <widget class="QSlider" name="cpu_slider">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
       <widget class="QSlider" name="gpu_slider">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -32,7 +39,7 @@
       </widget>
      </item>
      <item row="0" column="0">
-      <widget class="QSlider" name="cpu_slider">
+      <widget class="QSlider" name="res_slider">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -51,6 +58,7 @@
    <slots>
     <slot>adjustGPULimit(int)</slot>
     <slot>adjustCPULimit(int)</slot>
+    <slot>adjustResolution(int)</slot>
    </slots>
   </customwidget>
  </customwidgets>
@@ -81,6 +89,22 @@
     <hint type="sourcelabel">
      <x>399</x>
      <y>198</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>res_slider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>controllerWidget</receiver>
+   <slot>adjustResolution(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>399</x>
+     <y>147</y>
     </hint>
     <hint type="destinationlabel">
      <x>399</x>

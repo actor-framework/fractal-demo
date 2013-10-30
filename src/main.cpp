@@ -248,18 +248,20 @@ int main(int argc, char** argv) {
     else if (is_controller && !is_server) { // is controller
         cout << "starting controller" << endl;
         auto master = remote_actor(host, port);
-
         // launch gui
         QApplication app{argc, argv};
         QMainWindow window;
         Ui::Controller controller;
         controller.setupUi(&window);
-        // todo initilize stuff
-//        main.mainWidget->set_server(master);
-//        window.resize(ini.get_as<int>("fractals", "width"),
-//                      ini.get_as<int>("fractals", "height"));
-        send_as(controller.controllerWidget->as_actor(), master, atom("controller"));
-//        //window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        auto ctrl = controller.controllerWidget;
+        ctrl->set_master(master);
+        ctrl->set_resolutions({make_pair(800,450),
+                               make_pair(1024,576),
+                               make_pair(1280,720),
+                               make_pair(1680,945),
+                               make_pair(1920,1080),
+                               make_pair(2560,1440)});
+        send_as(ctrl->as_actor(), master, atom("controller"));
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

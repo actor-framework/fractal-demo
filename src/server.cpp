@@ -51,6 +51,11 @@ void server::send_next_job(const actor_ptr& worker, bool is_opencl_enabled) {
 
 void server::init(actor_ptr image_receiver) {
     become (
+        on(atom("controller")) >> [=] {
+            link_to(last_sender());
+            m_controller = last_sender();
+            send(m_controller, atom("setMax"), m_max_normal, m_max_opencl);
+        },
         on(atom("newWorker"), arg_match) >> [=] (bool is_opencl_enabled) {
             auto w = last_sender();
             if (w) {
@@ -65,6 +70,11 @@ void server::init(actor_ptr image_receiver) {
                 }
                 //send_next_job(w, is_opencl_enabled);
                 send(self, atom("distribute"));
+
+                // send maximum available gpus to controller
+                if (m_controller != nullptr) {
+                    send(m_controller, atom("setMax"), m_max_normal, m_max_opencl);
+                }
             }
         },
         on(atom("distribute")) >> [=] {
@@ -154,6 +164,7 @@ struct ini_helper {
 
 server::server(config_map& ini)
 : m_next_id(0)
+, m_controller(nullptr)
 , m_max_normal(0)
 , m_max_opencl(0)
 , m_cur_normal(0)

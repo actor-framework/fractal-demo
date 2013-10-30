@@ -14,8 +14,9 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     m_gpu_slider(nullptr)
 {
     set_message_handler (
-        on(atom("setLimit"), arg_match) >> [=] (int) {
-
+        on(atom("setMax"), arg_match) >> [=] (int max_cpu, int max_gpu) {
+            set_gpu_max(max_gpu);
+            set_cpu_max(max_cpu);
         },
         others() >> [=] {
             cout << "[!!!] unexpected message: '"

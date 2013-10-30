@@ -1,6 +1,8 @@
 #ifndef MAINWIDGET_HPP
 #define MAINWIDGET_HPP
 
+#include <map>
+#include <set>
 #include <QWidget>
 
 #include "imagelabel.h"
@@ -42,6 +44,10 @@ class MainWidget : public cppa::actor_widget_mixin<QWidget> {
 
     cppa::actor_ptr m_server;
     ImageLabel *m_imagelabel;
+
+    std::uint32_t m_next;
+    std::set<std::uint32_t> m_dropped;
+    std::map<std::uint32_t, QByteArray> m_buffer;
 
 };
 

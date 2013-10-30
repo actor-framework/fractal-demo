@@ -22,23 +22,14 @@
 using namespace cppa;
 using namespace std;
 
-void server::send_next_job(const actor_ptr& worker) {
+void server::send_next_job(const actor_ptr& worker, bool is_opencl_enabled) {
     if (worker == nullptr) {
         cerr << "send_next_job(nullptr) called" << endl;
     }
     if (worker == nullptr || not m_stream.next()) return;
     auto& fr = m_stream.request();
 
-//    cout << to_string(make_any_tuple(         atom("assign"),
-//             m_next_id+1,
-//             width(fr),
-//             height(fr),
-//             m_iterations,
-//             min_re(fr),
-//             max_re(fr),
-//             min_im(fr),
-//             max_im(fr))) << endl;
-    auto next_id = ++m_next_id;
+    auto next_id = m_next_id++;
     send(worker,
          atom("assign"),
          width(fr),
@@ -49,7 +40,13 @@ void server::send_next_job(const actor_ptr& worker) {
          max_re(fr),
          min_im(fr),
          max_im(fr));
-    m_current_jobs.insert(make_pair(worker, next_id));
+    //m_current_jobs.insert(make_pair(worker, next_id));
+    if (is_opencl_enabled) { ++m_cur_opencl; }
+    else                   { ++m_cur_normal; }
+    cout << "working actors:" << endl
+         << "normal "   << m_cur_normal << "/ " << m_max_normal
+         << "\nopencl " << m_cur_opencl << "/ " << m_max_opencl
+         << endl;
 }
 
 void server::init(actor_ptr image_receiver) {
@@ -58,33 +55,59 @@ void server::init(actor_ptr image_receiver) {
             auto w = last_sender();
             if (w) {
                 link_to(w);
-                if (is_opencl_enabled) { ++m_max_opencl; }
-                else                   { ++m_max_normal; }
-                // send three initial jobs per worker to minimize wait latency
-//                send_next_job(w);
-//                send_next_job(w);
-                send_next_job(w);
-                if (is_opencl_enabled) { ++m_cur_opencl; }
-                else                   { ++m_cur_normal; }
+                if (is_opencl_enabled) {
+                    ++m_max_opencl;
+                    m_opencl_actor_buffer.push_back(last_sender());
+                }
+                else {
+                    ++m_max_normal;
+                    m_normal_actor_buffer.push_back(last_sender());
+                }
+                //send_next_job(w, is_opencl_enabled);
+                send(self, atom("distribute"));
             }
         },
-        on(atom("limWorkers"), arg_match) >> [=] (uint32_t lim_normal,
-                                                  uint32_t lim_opencl) {
-            m_lim_normal = lim_normal;
-            m_lim_opencl = lim_opencl;
+        on(atom("distribute")) >> [=] {
+            while(!m_normal_actor_buffer.empty() &&
+                   m_cur_normal < m_lim_normal) {
+                send_next_job(m_normal_actor_buffer.back(), false);
+                m_normal_actor_buffer.pop_back();
+            }
+            while(!m_opencl_actor_buffer.empty() &&
+                   m_cur_opencl < m_lim_opencl) {
+                send_next_job(m_opencl_actor_buffer.back(), true);
+                m_opencl_actor_buffer.pop_back();
+            }
+        },
+        on(atom("limWorkers"), arg_match) >> [=] (uint32_t limit, bool is_opencl) {
+            if (is_opencl) { m_lim_opencl = limit; }
+            else           { m_lim_normal = limit; }
+            send(self, atom("distribute"));
         },
         on(atom("quit")) >> [=] {
             quit();
         },
-        on(atom("result"), arg_match) >> [=](uint32_t, const QByteArray&,
+        on(atom("result"), arg_match) >> [=](uint32_t id, const QByteArray& image,
                                              bool is_opencl_enabled) {
-            if (is_opencl_enabled) { --m_cur_opencl; }
-            else                   { --m_cur_normal; }
+            if (is_opencl_enabled) {
+                cout << "result from opencl worker" << endl;
+                --m_cur_opencl;
+                m_opencl_actor_buffer.push_back(last_sender());
+            }
+            else {
+                cout << "result from normal worker" << endl;
+                --m_cur_normal;
+                m_normal_actor_buffer.push_back(last_sender());
+            }
             // don't use forward_to to hide workers
-            send_tuple(image_receiver, last_dequeued());
-            send_next_job(last_sender());
+            // send_tuple(image_receiver, last_dequeued());
+            send(image_receiver, atom("result"), id, image);
+            //send_next_job(last_sender(), is_opencl_enabled);
             if (m_stream.at_end()) {
                 send(image_receiver, atom("done"), m_next_id);
+            }
+            else {
+                send(self, atom("distribute"));
             }
         },
         on(atom("resize"), arg_match) >> [=](uint32_t new_width,
@@ -97,8 +120,9 @@ void server::init(actor_ptr image_receiver) {
             // todo decrement worker count accurdingly
             auto w = m_current_jobs.find(last_sender());
             if (w != m_current_jobs.end()) {
-                m_current_jobs.erase(w);
                 // todo remove from next picture list
+                send(image_receiver, atom("dropped"), w->second);
+                m_current_jobs.erase(w);
             }
         },
         others() >> [=] {
@@ -128,7 +152,14 @@ struct ini_helper {
     }
 };
 
-server::server(config_map& ini) : m_next_id(0) {
+server::server(config_map& ini)
+: m_next_id(0)
+, m_max_normal(0)
+, m_max_opencl(0)
+, m_cur_normal(0)
+, m_cur_opencl(0)
+, m_lim_normal(0)
+, m_lim_opencl(0) {
     ini_helper rd{ini};
     auto width      = rd("width",      default_width);
     auto height     = rd("height",     default_height);

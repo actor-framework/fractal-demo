@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
                    float_type, float_type, float_type, float_type>();
     // sent from client to server
     announce_tuple<atom_value, uint32_t, QByteArray>();
+    announce_tuple<atom_value, uint32_t, QByteArray, bool>();
     // parse command line options
     string host;
     uint16_t port = 20283;
@@ -97,12 +98,12 @@ int main(int argc, char** argv) {
         };
         auto send_workers = [&](const actor_ptr& master) {
             for (auto w : normal_workers) {
-                send_as(w, master, atom("newWorker"));
+                send_as(w, master, atom("newWorker"), false);
             }
         };
         auto send_opencl_workers = [&](const actor_ptr& master) {
             for (auto w : opencl_workers) {
-                send_as(w, master, atom("newWorker"));
+                send_as(w, master, atom("newWorker"), true);
             }
         };
         if (publish_workers) {
@@ -201,7 +202,7 @@ int main(int argc, char** argv) {
             uint32_t received_images = 0;
             uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
             receive_while(gref(received_images) < gref(total_images)) (
-                on(atom("result"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
+                on(atom("result"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba, bool) {
                     auto img = QImage::fromData(ba, image_format);
                     std::ostringstream fname;
                     fname.width(4);
@@ -234,6 +235,7 @@ int main(int argc, char** argv) {
             window.resize(ini.get_as<int>("fractals", "width"),
                           ini.get_as<int>("fractals", "height"));
             send_as(nullptr, master, atom("init"), main.mainWidget->as_actor());
+            send_as(nullptr, main.mainWidget->as_actor(), atom("display"));
             //window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
             window.show();
             app.quitOnLastWindowClosed();
@@ -244,6 +246,7 @@ int main(int argc, char** argv) {
         shutdown();
     }
     else if (is_controller && !is_server) { // is controller
+        cout << "starting controller" << endl;
         // launch gui
         QApplication app{argc, argv};
         QMainWindow window;

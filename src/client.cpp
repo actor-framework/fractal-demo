@@ -26,14 +26,14 @@
 using namespace std;
 using namespace cppa;
 
-any_tuple response_from_image(QImage image, uint32_t image_id) {
+any_tuple response_from_image(QImage image, uint32_t image_id, bool is_opencl_enabled) {
     QByteArray ba;
     QBuffer buf{&ba};
     buf.open(QIODevice::WriteOnly);
     image.save(&buf, image_format);
     buf.close();
     // last argument identifies this worker as a "normal" actor
-    return make_any_tuple(atom("result"), image_id, std::move(ba), false);
+    return make_any_tuple(atom("result"), image_id, std::move(ba), is_opencl_enabled);
 }
 
 #ifdef ENABLE_OPENCL
@@ -88,6 +88,7 @@ class clbroker : public event_based_actor {
         become (
             on(atom("assign"), arg_match)
             >> [=](uint32_t width, uint32_t height, uint32_t iterations, uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
+                cout << "opencl worker received work" << endl;
                 m_current_server = self->last_sender();
                 if (   width != clwidth
                     || height != clheight
@@ -136,7 +137,7 @@ class clbroker : public event_based_actor {
                     }
                 }
                 // last argument identifies this worker as an opencl-enabled actor
-                reply_tuple_to(hdl, response_from_image(image, image_id), true);
+                reply_tuple_to(hdl, response_from_image(image, image_id, true));
             }
         );
     }
@@ -179,13 +180,16 @@ void client::init() {
                                              float_type max_re,
                                              float_type min_im,
                                              float_type max_im) {
+            cout << "normal worker received work" << endl;
             m_current_server = self->last_sender();
             // was reply_tuple
             return (
                 response_from_image(
                     calculate_fractal(m_palette, width, height, iterations,
                                       min_re, max_re, min_im, max_im),
-                image_id)
+                    image_id,
+                    false
+                )
             );
         },
         others() >> [=] {

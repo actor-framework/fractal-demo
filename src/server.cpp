@@ -91,7 +91,7 @@ void server::init(actor_ptr image_receiver) {
                   !m_opencl_actor_buffer.empty()) {
                 send_next_job(m_opencl_actor_buffer.back(), true);
                 m_opencl_actor_buffer.pop_back();
-                cout << "opencl workers left: " << m_normal_actor_buffer.size() << endl;
+                cout << "opencl workers left: " << m_opencl_actor_buffer.size() << endl;
             }
         },
         on(atom("limWorkers"), arg_match) >> [=] (uint32_t limit, bool is_opencl) {
@@ -107,7 +107,8 @@ void server::init(actor_ptr image_receiver) {
         on(atom("quit")) >> [=] {
             quit();
         },
-        on(atom("result"), arg_match) >> [=](uint32_t id, const QByteArray& image,
+        on(atom("result"), arg_match) >> [=](uint32_t id,
+                                             const QByteArray& image,
                                              bool is_opencl_enabled) {
             if (is_opencl_enabled) {
                 cout << "result from opencl worker" << endl;

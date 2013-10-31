@@ -34,3 +34,5 @@ src/config.cpp
 
 include/calculate_fractal.hpp
 src/calculate_fractal.cpp
+
+controller.ui

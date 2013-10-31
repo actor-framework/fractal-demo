@@ -2,6 +2,7 @@
 #define CONTROLLERWIDGET_HPP
 
 #include <vector>
+#include <QLabel>
 #include <QWidget>
 #include <QSlider>
 
@@ -50,6 +51,10 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
         return get(m_resolution_slider, "res_slider");
     }
 
+    inline QLabel* res_current() {
+        return get(m_res_current, "res_current");
+    }
+
     inline void set_cpu_max(std::uint32_t max) {
         cpu_slider()->setRange(0, static_cast<int>(max));
         cpu_slider()->setTickInterval(1);
@@ -70,6 +75,8 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     QSlider* m_cpu_slider;
     QSlider* m_gpu_slider;
     QSlider* m_resolution_slider;
+
+    QLabel* m_res_current;
 
     std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;
 };

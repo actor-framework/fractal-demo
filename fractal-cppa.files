@@ -36,3 +36,5 @@ include/calculate_fractal.hpp
 src/calculate_fractal.cpp
 
 controller.ui
+include/counter.hpp
+src/counter.cpp

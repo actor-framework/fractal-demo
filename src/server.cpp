@@ -56,8 +56,8 @@ void server::init(actor_ptr counter) {
             quit();
         },
         on(atom("result"), arg_match) >> [=](uint32_t id,
-                                             const QByteArray& image) {
-            send(counter, atom("result"), id, image);
+                                             const QByteArray& ba) {
+            send(counter, atom("image"), id, ba);
             if (m_stream.at_end()) {
                 // provides endless stream
                 m_stream.loop_stack();
@@ -87,7 +87,7 @@ void server::init(actor_ptr counter) {
             }
         },
         others() >> [=] {
-            cout << "[!!!] unexpected message: '"
+            cout << "[!!!] server received unexpected message: '"
                  << to_string(last_dequeued())
                  << "'." << endl;
         }

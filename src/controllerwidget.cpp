@@ -9,7 +9,7 @@ using namespace cppa;
 
 ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     super(parent, f),
-    m_master(nullptr),
+    m_controller(nullptr),
     m_cpu_slider(nullptr),
     m_gpu_slider(nullptr),
     m_resolution_slider(nullptr)
@@ -51,20 +51,20 @@ void ControllerWidget::initialize(std::vector<std::pair<std::uint32_t,
 
 void ControllerWidget::adjustGPULimit(int newLimit) {
     cout << "new GPU limit: " << newLimit << endl;
-    if(m_master != nullptr) {
-        send(m_master, atom("limit"), atom("opencl"), static_cast<uint32_t>(newLimit));
+    if(m_controller != nullptr) {
+        send(m_controller, atom("limit"), atom("opencl"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustCPULimit(int newLimit) {
     cout << "new CPU limit: " << newLimit << endl;
-    if(m_master != nullptr) {
-        send(m_master, atom("limit"), atom("normal"), static_cast<uint32_t>(newLimit));
+    if(m_controller != nullptr) {
+        send(m_controller, atom("limit"), atom("normal"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustResolution(int idx) {
-    if(m_master != nullptr) {
-        send(m_master, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
+    if(m_controller != nullptr) {
+        send(m_controller, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
     }
 }

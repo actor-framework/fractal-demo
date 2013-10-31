@@ -23,9 +23,9 @@ class server : public cppa::event_based_actor {
 
  public:
 
-    server(config_map& config);
+    server(config_map& config, cppa::actor_ptr counter);
 
-    virtual void init() override;
+    void init();
 
  private:
 
@@ -35,12 +35,12 @@ class server : public cppa::event_based_actor {
     std::uint32_t m_assign_id;
     std::uint32_t m_iterations;
 
+    cppa::actor_ptr m_counter;
+
     std::set<cppa::actor_ptr> m_workers;
     std::map<cppa::actor_ptr, std::uint32_t> m_jobs;
 
     fractal_request_stream m_stream;
-
-    void init(cppa::actor_ptr counter);
 
     void send_next_job(const cppa::actor_ptr& worker);
 

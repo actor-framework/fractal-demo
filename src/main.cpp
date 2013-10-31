@@ -10,6 +10,8 @@
 #include "ui_main.h"
 #include "server.hpp"
 #include "client.hpp"
+#include "counter.hpp"
+#include "controller.hpp"
 #include "mainwidget.hpp"
 #include "ui_controller.h"
 #include "q_byte_array_info.hpp"
@@ -66,44 +68,35 @@ int main(int argc, char** argv) {
         on_opt1('n', "nodes",   &desc, "use given list (host:port notation) as workes", "server") >> rd_arg(nodes_list),
         on_opt0('g', "no-gui",  &desc, "save images to local directory", "server") >> set_flag(no_gui),
         // controller
-        on_opt0('c', "controller", &desc, "start a controller", "controller") >> set_flag(is_controller)
+        on_opt0('c', "controller", &desc, "start a controller ui", "controller") >> set_flag(is_controller)
     );
     if (!args_valid) print_desc_and_exit(&desc)();
     if (!is_server && !is_controller) {
         if (num_workers == 0) num_workers = 1;
-        std::vector<actor_ptr> normal_workers;
-        std::vector<actor_ptr> opencl_workers;
+        std::vector<actor_ptr> workers;
 #       ifdef ENABLE_OPENCL
         // spawn at most one GPU worker
         if (with_opencl) {
             cout << "add an OpenCL worker" << endl;
-            opencl_workers.push_back(spawn_opencl_client(opencl_device_id));
+            workers.push_back(spawn_opencl_client(opencl_device_id));
             if (num_workers > 0) --num_workers;
         }
 #       endif // ENABLE_OPENCL
         for (size_t i = 0; i < num_workers; ++i) {
             cout << "add a CPU worker" << endl;
-            normal_workers.push_back(spawn<client>());
+            workers.push_back(spawn<client>());
         }
         auto emergency_shutdown = [&] {
-            for (auto w : normal_workers) {
-                send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
-            }
-            for (auto w : opencl_workers) {
+            for (auto w : workers) {
                 send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
             }
             await_all_others_done();
             shutdown();
             exit(-1);
         };
-        auto send_workers = [&](const actor_ptr& master) {
-            for (auto w : normal_workers) {
-                send_as(w, master, atom("newWorker"), false);
-            }
-        };
-        auto send_opencl_workers = [&](const actor_ptr& master) {
-            for (auto w : opencl_workers) {
-                send_as(w, master, atom("newWorker"), true);
+        auto send_workers = [&](const actor_ptr& controller) {
+            for (auto w : workers) {
+                send_as(w, controller, atom("newWorker"));
             }
         };
         if (publish_workers) {
@@ -115,9 +108,8 @@ int main(int argc, char** argv) {
             }
             receive_loop (
                 on(atom("getWorkers")) >> [&] {
-                    auto master = self->last_sender();
-                    send_workers(master);
-                    send_opencl_workers(master);
+                    auto controller = self->last_sender();
+                    send_workers(controller);
                 },
                 others() >> [] {
                     cerr << "unexpected: "
@@ -127,9 +119,8 @@ int main(int argc, char** argv) {
         }
         else {
             try {
-                auto master = remote_actor(host, port);
-                send_workers(master);
-                send_opencl_workers(master);
+                auto controller = remote_actor(host, port);
+                send_workers(controller);
             }
             catch (std::exception& e) {
                 cerr << "unable to connect to server: " << e.what() << endl;
@@ -146,8 +137,10 @@ int main(int argc, char** argv) {
         config_map ini;
         try { ini.read_ini("fractal_server.ini"); }
         catch (exception&) { /* no config file found (use defaults)" */ }
-        // launch and publish master (waits for 'init' message)
-        auto master = spawn<server>(ini);
+        // counter requires init message with gui widget
+        auto cntr = spawn<counter>();
+        auto srvr = spawn<server>(ini, cntr);
+        auto ctrl = spawn<controller>(srvr);
         //TODO: this vector is completely useless to the application,
         //      BUT: libcppa will close the network connection, because the app.
         //      calls ptr = remote_actor(..), sends a message and then ptr goes
@@ -165,7 +158,7 @@ int main(int argc, char** argv) {
                         try {
                             auto ptr = remote_actor(host, p);
                             remotes.push_back(ptr);
-                            send_as(master, ptr, atom("getWorkers"));
+                            send_as(ctrl, ptr, atom("getWorkers"));
                         }
                         catch (std::exception& e) {
                             cerr << "unable to connect to " << host
@@ -176,7 +169,7 @@ int main(int argc, char** argv) {
             }
         }
 //        else {
-        try { publish(master, port); }
+        try { publish(ctrl, port); }
         catch (std::exception& e) {
             cerr << "unable to publish actor: " << e.what() << endl;
             return -1;
@@ -187,23 +180,21 @@ int main(int argc, char** argv) {
             // spawn at most one GPU worker
             if (with_opencl) {
                 cout << "add an OpenCL worker" << endl;
-                // last argument identifies worker as opencl-enabled
-                send_as(spawn_opencl_client(opencl_device_id), master, atom("newWorker"), true);
+                send_as(spawn_opencl_client(opencl_device_id), ctrl, atom("add"));
                 if (num_workers > 0) --num_workers;
             }
     #       endif // ENABLE_OPENCL
             for (size_t i = 0; i < num_workers; ++i) {
                 cout << "add a CPU worker" << endl;
-                // last argument identifies worker as normal worker
-                send_as(spawn<client>(), master, atom("newWorker"), false);
+                send_as(spawn<client>(), ctrl, atom("add"));
             }
         }
         if (no_gui) {
-            send(master, atom("init"), self);
+            send(cntr, atom("init"), self);
             uint32_t received_images = 0;
             uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
             receive_while(gref(received_images) < gref(total_images)) (
-                on(atom("result"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba, bool) {
+                on(atom("image"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
                     auto img = QImage::fromData(ba, image_format);
                     std::ostringstream fname;
                     fname.width(4);
@@ -232,37 +223,36 @@ int main(int argc, char** argv) {
             QMainWindow window;
             Ui::Main main;
             main.setupUi(&window);
-            main.mainWidget->set_server(master);
+//            main.mainWidget->set_server(master);
+            // todo tell widget about other actors?
             window.resize(ini.get_as<int>("fractals", "width"),
                           ini.get_as<int>("fractals", "height"));
-            send_as(nullptr, master, atom("init"), main.mainWidget->as_actor());
-            send_as(nullptr, main.mainWidget->as_actor(), atom("display"));
-            //window.resize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
+            send_as(nullptr, cntr, atom("init"), main.mainWidget->as_actor());
             window.show();
             app.quitOnLastWindowClosed();
             app.exec();
         }
-        send_as(nullptr, master, atom("quit"));
+        send_as(nullptr, ctrl, atom("quit"));
         await_all_others_done();
         shutdown();
     }
-    else if (is_controller && !is_server) { // is controller
-        cout << "starting controller" << endl;
-        auto master = remote_actor(host, port);
+    else if (is_controller && !is_server) { // is controller ui
+        cout << "starting controller ui" << endl;
+        auto ctrl = remote_actor(host, port);
         // launch gui
         QApplication app{argc, argv};
         QMainWindow window;
-        Ui::Controller controller;
-        controller.setupUi(&window);
-        auto ctrl = controller.controllerWidget;
-        ctrl->set_master(master);
-        ctrl->initialize({make_pair(800,450),
+        Ui::Controller ctrl_ui;
+        ctrl_ui.setupUi(&window);
+        auto ctrl_widget = ctrl_ui.controllerWidget;
+        ctrl_widget->set_controller(ctrl);
+        ctrl_widget->initialize({make_pair(800,450),
                           make_pair(1024,576),
                           make_pair(1280,720),
                           make_pair(1680,945),
                           make_pair(1920,1080),
                           make_pair(2560,1440)});
-        send_as(ctrl->as_actor(), master, atom("controller"));
+        send_as(ctrl_widget->as_actor(), ctrl, atom("controller"));
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

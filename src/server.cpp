@@ -43,7 +43,8 @@ void server::send_next_job(const actor_ptr& worker) {
     m_jobs.insert(make_pair(worker, next_id));
 }
 
-void server::init(actor_ptr counter) {
+void server::init() {
+    trap_exit(true);
     become (
         on(atom("workers"), arg_match) >> [=] (const std::set<actor_ptr>& workers) {
             // todo use new workers from here on out
@@ -57,7 +58,7 @@ void server::init(actor_ptr counter) {
         },
         on(atom("result"), arg_match) >> [=](uint32_t id,
                                              const QByteArray& ba) {
-            send(counter, atom("image"), id, ba);
+            send(m_counter, atom("image"), id, ba);
             if (m_stream.at_end()) {
                 // provides endless stream
                 m_stream.loop_stack();
@@ -81,7 +82,7 @@ void server::init(actor_ptr counter) {
             auto a = last_sender();
             auto j = m_jobs.find(a);
             if (j != m_jobs.end()) {
-                send(counter, atom("dropped"), j->first);
+                send(m_counter, atom("dropped"), j->first);
                 m_jobs.erase(j);
                 // todo remove from worker set?
             }
@@ -90,16 +91,6 @@ void server::init(actor_ptr counter) {
             cout << "[!!!] server received unexpected message: '"
                  << to_string(last_dequeued())
                  << "'." << endl;
-        }
-    );
-}
-
-void server::init() {
-    trap_exit(true);
-    // wait for init message
-    become (
-        on(atom("init"), arg_match) >> [=](actor_ptr counter) {
-            init(counter);
         }
     );
 }
@@ -113,8 +104,9 @@ struct ini_helper {
     }
 };
 
-server::server(config_map& ini)
-: m_next_id(0) {
+server::server(config_map& ini, cppa::actor_ptr counter)
+: m_next_id(0)
+, m_counter(counter) {
     ini_helper rd{ini};
     auto width      = rd("width",      default_width);
     auto height     = rd("height",     default_height);

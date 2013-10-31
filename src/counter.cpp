@@ -26,13 +26,13 @@ bool counter::probe() {
     }
 }
 
-void counter::init(actor_ptr gui) {
+void counter::init(actor_ptr widget) {
     become(
         on(atom("tick")) >> [=] {
             while (probe());
             auto j = m_buffer.find(m_next);
             if (j != m_buffer.end()) {
-                send(gui, move(j->second)); // todo is this valid?
+                send(widget, move(j->second)); // todo is this valid?
                 m_buffer.erase(j);
             }
             delayed_send(self, chrono::milliseconds(m_delay), atom("tick"));
@@ -57,11 +57,10 @@ void counter::init(actor_ptr gui) {
 void counter::init() {
     trap_exit(true);
     become (
-        on(atom("init"), arg_match) >> [=] (actor_ptr gui) {
+        on(atom("init"), arg_match) >> [=] (actor_ptr widget) {
             delayed_send(self, chrono::milliseconds(m_delay), atom("tick"));
-            init(gui);
+            init(widget);
         }
-
     );
 }
 

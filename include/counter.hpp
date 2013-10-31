@@ -16,7 +16,7 @@ class counter : public cppa::event_based_actor {
  private:
 
     bool probe();
-    void init(cppa::actor_ptr gui);
+    void init(cppa::actor_ptr widget);
 
     std::uint32_t m_next;
     std::uint32_t m_delay; // in msec

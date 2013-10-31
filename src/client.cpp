@@ -26,14 +26,13 @@
 using namespace std;
 using namespace cppa;
 
-any_tuple response_from_image(QImage image, uint32_t image_id, bool is_opencl_enabled) {
+any_tuple response_from_image(QImage image, uint32_t image_id) {
     QByteArray ba;
     QBuffer buf{&ba};
     buf.open(QIODevice::WriteOnly);
     image.save(&buf, image_format);
     buf.close();
-    // last argument identifies this worker as a "normal" actor
-    return make_any_tuple(atom("result"), image_id, std::move(ba), is_opencl_enabled);
+    return make_any_tuple(atom("result"), image_id, std::move(ba));
 }
 
 #ifdef ENABLE_OPENCL
@@ -87,8 +86,10 @@ class clbroker : public event_based_actor {
     void init() {
         become (
             on(atom("assign"), arg_match)
-            >> [=](uint32_t width, uint32_t height, uint32_t iterations, uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
-//                cout << "opencl worker received work" << endl;
+            >> [=](uint32_t width, uint32_t height,
+                   uint32_t iterations, uint32_t image_id,
+                   float_type min_re, float_type max_re,
+                   float_type min_im, float_type max_im) {
                 m_current_server = self->last_sender();
                 if (   width != clwidth
                     || height != clheight
@@ -110,11 +111,14 @@ class clbroker : public event_based_actor {
     }
 
     clbroker(uint32_t device_id)
-    : clprog(opencl::program::create(kernel_source, device_id)), clwidth(0), clheight(0), cliterations(0) { }
+    : clprog(opencl::program::create(kernel_source, device_id)),
+             clwidth(0), clheight(0), cliterations(0) { }
 
  private:
 
-    void clforward(uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
+    void clforward(uint32_t image_id,
+                   float_type min_re, float_type max_re,
+                   float_type min_im, float_type max_im) {
         m_current_server = self->last_sender();
         vector<float> cljob;
         cljob.reserve(7);
@@ -136,8 +140,7 @@ class clbroker : public event_based_actor {
                         image.setPixel(x,y,palette[result[x+y*clwidth]].rgb());
                     }
                 }
-                // last argument identifies this worker as an opencl-enabled actor
-                reply_tuple_to(hdl, response_from_image(image, image_id, true));
+                reply_tuple_to(hdl, response_from_image(image, image_id));
             }
         );
     }
@@ -152,7 +155,8 @@ class clbroker : public event_based_actor {
 
 };
 
-//void clbroker(uint32_t clwidth, uint32_t clheight, uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
+//void clbroker(uint32_t clwidth, uint32_t clheight,
+//              uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
 //}
 
 actor_ptr spawn_opencl_client(uint32_t device_id) {
@@ -180,15 +184,13 @@ void client::init() {
                                              float_type max_re,
                                              float_type min_im,
                                              float_type max_im) {
-//            cout << "normal worker received work" << endl;
             m_current_server = self->last_sender();
             // was reply_tuple
             return (
                 response_from_image(
                     calculate_fractal(m_palette, width, height, iterations,
                                       min_re, max_re, min_im, max_im),
-                    image_id,
-                    false
+                    image_id
                 )
             );
         },

@@ -31,7 +31,8 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     );
 }
 
-void ControllerWidget::initialize(std::vector<std::pair<std::uint32_t, std::uint32_t>> resolutions) {
+void ControllerWidget::initialize(std::vector<std::pair<std::uint32_t, 
+                                                        std::uint32_t>> resolutions) {
 //    m_resolutions.push_back(make_pair(800,450));
 //    m_resolutions.push_back(make_pair(1024,576));
 //    m_resolutions.push_back(make_pair(1280,720));
@@ -49,19 +50,18 @@ void ControllerWidget::initialize(std::vector<std::pair<std::uint32_t, std::uint
 void ControllerWidget::adjustGPULimit(int newLimit) {
     cout << "new GPU limit: " << newLimit << endl;
     if(m_master != nullptr) {
-        send(m_master, atom("limWorkers"), static_cast<uint32_t>(newLimit), true);
+        send(m_master, atom("limit"), atom("opencl"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustCPULimit(int newLimit) {
     cout << "new CPU limit: " << newLimit << endl;
     if(m_master != nullptr) {
-        send(m_master, atom("limWorkers"), static_cast<uint32_t>(newLimit), false);
+        send(m_master, atom("limit"), atom("normal"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustResolution(int idx) {
-    cout << "new resolution: " << m_resolutions[idx].first << "x" << m_resolutions[idx].second << endl;
     if(m_master != nullptr) {
         send(m_master, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
     }

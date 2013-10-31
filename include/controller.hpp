@@ -15,8 +15,12 @@ class controller : public cppa::event_based_actor {
  private:
 
     void init(cppa::actor_ptr widget);
+    void send_worker_config();
 
     cppa::actor_ptr m_server;
+
+    std::uint32_t m_use_normal;
+    std::uint32_t m_use_opencl;
 
     std::vector<cppa::actor_ptr> m_opencl;
     std::vector<cppa::actor_ptr> m_normal;

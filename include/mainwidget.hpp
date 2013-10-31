@@ -43,11 +43,9 @@ class MainWidget : public cppa::actor_widget_mixin<QWidget> {
     }
 
     cppa::actor_ptr m_server;
-    ImageLabel *m_imagelabel;
+    cppa::actor_ptr m_controller;
 
-    std::uint32_t m_next;
-    std::set<std::uint32_t> m_dropped;
-    std::map<std::uint32_t, QByteArray> m_buffer;
+    ImageLabel *m_imagelabel;
 
 };
 

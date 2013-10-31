@@ -41,6 +41,8 @@ void ControllerWidget::set_resolutions(std::vector<std::pair<std::uint32_t, std:
     m_resolutions.swap(resolutions);
     resolution_slider()->setRange(0,m_resolutions.size()-1);
     resolution_slider()->setValue(m_resolutions.size()-1);
+    resolution_slider()->setTickInterval(1);
+    resolution_slider()->setTickPosition(QSlider::TicksBelow);
 }
 
 

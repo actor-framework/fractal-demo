@@ -52,10 +52,14 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     inline void set_cpu_max(std::uint32_t max) {
         cpu_slider()->setRange(0, static_cast<int>(max));
+        cpu_slider()->setTickInterval(1);
+        cpu_slider()->setTickPosition(QSlider::TicksBelow);
     }
 
     inline void set_gpu_max(std::uint32_t max) {
         gpu_slider()->setRange(0, static_cast<int>(max));
+        gpu_slider()->setTickInterval(1);
+        gpu_slider()->setTickPosition(QSlider::TicksBelow);
     }
 
 

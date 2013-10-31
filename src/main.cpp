@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
                 on(atom("getWorkers")) >> [&] {
                     auto master = self->last_sender();
                     send_workers(master);
+                    send_opencl_workers(master);
                 },
                 others() >> [] {
                     cerr << "unexpected: "
@@ -174,13 +175,13 @@ int main(int argc, char** argv) {
                 );
             }
         }
-        else {
-            try { publish(master, port); }
-            catch (std::exception& e) {
-                cerr << "unable to publish actor: " << e.what() << endl;
-                return -1;
-            }
+//        else {
+        try { publish(master, port); }
+        catch (std::exception& e) {
+            cerr << "unable to publish actor: " << e.what() << endl;
+            return -1;
         }
+//        }
         if (num_workers > 0) {
     #       ifdef ENABLE_OPENCL
             // spawn at most one GPU worker
@@ -255,12 +256,12 @@ int main(int argc, char** argv) {
         controller.setupUi(&window);
         auto ctrl = controller.controllerWidget;
         ctrl->set_master(master);
-        ctrl->set_resolutions({make_pair(800,450),
-                               make_pair(1024,576),
-                               make_pair(1280,720),
-                               make_pair(1680,945),
-                               make_pair(1920,1080),
-                               make_pair(2560,1440)});
+        ctrl->initialize({make_pair(800,450),
+                          make_pair(1024,576),
+                          make_pair(1280,720),
+                          make_pair(1680,945),
+                          make_pair(1920,1080),
+                          make_pair(2560,1440)});
         send_as(ctrl->as_actor(), master, atom("controller"));
         window.show();
         app.quitOnLastWindowClosed();

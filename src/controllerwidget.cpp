@@ -16,8 +16,8 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
 {
     set_message_handler (
         on(atom("setMax"), arg_match) >> [=] (uint32_t max_cpu, uint32_t max_gpu) {
-            set_gpu_max(max_gpu);
             set_cpu_max(max_cpu);
+            set_gpu_max(max_gpu);
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
             cout << "[!!!] master died" << endl;
@@ -31,7 +31,7 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     );
 }
 
-void ControllerWidget::set_resolutions(std::vector<std::pair<std::uint32_t, std::uint32_t>> resolutions) {
+void ControllerWidget::initialize(std::vector<std::pair<std::uint32_t, std::uint32_t>> resolutions) {
 //    m_resolutions.push_back(make_pair(800,450));
 //    m_resolutions.push_back(make_pair(1024,576));
 //    m_resolutions.push_back(make_pair(1280,720));

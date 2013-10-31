@@ -43,9 +43,9 @@ void server::send_next_job(const actor_ptr& worker, bool is_opencl_enabled) {
     m_current_jobs.insert(make_pair(worker, next_id));
     if (is_opencl_enabled) { ++m_cur_opencl; }
     else                   { ++m_cur_normal; }
-    cout << "working (" << m_cur_normal << "/" << m_max_normal
-         << ") ["       << m_cur_opencl << "/" << m_max_opencl << "]"
-         << endl;
+//    cout << "working (" << m_cur_normal << "/" << m_max_normal
+//         << ") ["       << m_cur_opencl << "/" << m_max_opencl << "]"
+//         << endl;
 }
 
 void server::init(actor_ptr image_receiver) {
@@ -56,6 +56,7 @@ void server::init(actor_ptr image_receiver) {
             send(m_controller, atom("setMax"), m_max_normal, m_max_opencl);
         },
         on(atom("newWorker"), arg_match) >> [=] (bool is_opencl_enabled) {
+            cout << "new worker is opencl-enabled:" << is_opencl_enabled << endl;
             auto w = last_sender();
             if (w) {
                 link_to(w);
@@ -71,29 +72,37 @@ void server::init(actor_ptr image_receiver) {
                 }
                 //send_next_job(w, is_opencl_enabled);
                 send(self, atom("distribute"));
-
                 // send maximum available gpus to controller
                 if (m_controller != nullptr) {
                     send(m_controller, atom("setMax"), m_max_normal, m_max_opencl);
                 }
+                cout << "known workers: " << m_max_normal << ", " << m_max_opencl << endl;
             }
         },
         on(atom("distribute")) >> [=] {
+            cout << "in distribute" << endl;
             while(m_cur_normal < m_lim_normal &&
                   !m_normal_actor_buffer.empty()) {
                 send_next_job(m_normal_actor_buffer.back(), false);
                 m_normal_actor_buffer.pop_back();
+                cout << "normal workers left: " << m_normal_actor_buffer.size() << endl;
             }
             while(m_cur_opencl < m_lim_opencl &&
                   !m_opencl_actor_buffer.empty()) {
                 send_next_job(m_opencl_actor_buffer.back(), true);
                 m_opencl_actor_buffer.pop_back();
+                cout << "opencl workers left: " << m_normal_actor_buffer.size() << endl;
             }
         },
         on(atom("limWorkers"), arg_match) >> [=] (uint32_t limit, bool is_opencl) {
-            if (is_opencl) { m_lim_opencl = limit; }
-            else           { m_lim_normal = limit; }
-            send(self, atom("distribute"));
+            if (is_opencl) {
+                if (limit > m_lim_opencl) { send(self, atom("distribute")); };
+                m_lim_opencl = limit;
+            }
+            else {
+                if (limit > m_lim_normal) { send(self, atom("distribute")); };
+                m_lim_normal = limit;
+            }
         },
         on(atom("quit")) >> [=] {
             quit();
@@ -112,11 +121,10 @@ void server::init(actor_ptr image_receiver) {
             }
             send(image_receiver, atom("result"), id, image);
             if (m_stream.at_end()) {
-                send(image_receiver, atom("done"), m_next_id);
+                //send(image_receiver, atom("done"), m_next_id);
+                m_stream.loop_stack();
             }
-            else {
-                send(self, atom("distribute"));
-            }
+            send(self, atom("distribute"));
         },
         on(atom("resize"), arg_match) >> [=](uint32_t new_width,
                                              uint32_t new_height) {

@@ -40,6 +40,8 @@ class fractal_request_stream {
 
     inline bool at_end() const { return m_operations.empty(); }
 
+    void loop_stack();
+
  private:
 
     std::uint32_t   m_width;
@@ -53,7 +55,6 @@ class fractal_request_stream {
 
     std::vector<std::pair<operation,predicate>> m_operations;
 
-    void loop_stack();
     void add_start_move(float_type from_x, float_type from_y, float_type to_x, float_type to_y, int max_zoom);
     void add_move_from_to(float_type from_x, float_type from_y, float_type to_x, float_type to_y, int max_zoom);
     void add_end_move(float_type from_x, float_type from_y, float_type to_x, float_type to_y);

@@ -88,7 +88,7 @@ class clbroker : public event_based_actor {
         become (
             on(atom("assign"), arg_match)
             >> [=](uint32_t width, uint32_t height, uint32_t iterations, uint32_t image_id, float_type min_re, float_type max_re, float_type min_im, float_type max_im) {
-                cout << "opencl worker received work" << endl;
+//                cout << "opencl worker received work" << endl;
                 m_current_server = self->last_sender();
                 if (   width != clwidth
                     || height != clheight
@@ -180,7 +180,7 @@ void client::init() {
                                              float_type max_re,
                                              float_type min_im,
                                              float_type max_im) {
-            cout << "normal worker received work" << endl;
+//            cout << "normal worker received work" << endl;
             m_current_server = self->last_sender();
             // was reply_tuple
             return (

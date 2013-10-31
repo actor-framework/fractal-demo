@@ -103,6 +103,9 @@ class clbroker : public event_based_actor {
                 }
                 clforward(image_id, min_re, max_re, min_im, max_im);
             },
+            on(atom("opencl")) >> [=] {
+                return(atom("opencl"),true);
+            },
             others() >> [=] {
                 aout << "Unexpected message: '"
                      << to_string(self->last_dequeued()) << "'.\n";
@@ -193,6 +196,9 @@ void client::init() {
                     image_id
                 )
             );
+        },
+        on(atom("opencl")) >> [=] {
+            return (atom("opencl"),false);
         },
         others() >> [=] {
             aout << "Unexpected message: '"

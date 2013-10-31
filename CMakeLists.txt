@@ -130,6 +130,7 @@ set(SOURCES
     src/server.cpp
     src/fractal_request_stream.cpp
     src/counter.cpp
+    src/controller.cpp
     ${FRACTAL_CPPA_MOC_SRCS}
     ${FRACTAL_CPPA_RC_SRCS}
     ${FRACTAL_CPPA_UI_HDRS})

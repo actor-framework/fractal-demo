@@ -32,7 +32,7 @@ class server : public cppa::event_based_actor {
     std::uint32_t m_interval;   // in msecs
     std::uint32_t m_queuesize;
     std::uint32_t m_next_id;
-    std::uint32_t m_assign_id;
+    //std::uint32_t m_assign_id;
     std::uint32_t m_iterations;
 
     cppa::actor_ptr m_counter;

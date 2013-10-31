@@ -15,10 +15,10 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     m_resolution_slider(nullptr)
 {
     set_message_handler (
-        on(atom("max_cpu"), arg_match) >> [=] (uint32_t max_cpu) {
+        on(atom("max_cpu"), arg_match) >> [=] (size_t max_cpu) {
             set_cpu_max(max_cpu);
         },
-        on(atom("max_gpu"), arg_match) >> [=] (uint32_t max_gpu) {
+        on(atom("max_gpu"), arg_match) >> [=] (size_t max_gpu) {
             set_gpu_max(max_gpu);
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
@@ -26,7 +26,7 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
             // quit
         },
         others() >> [=] {
-            cout << "[!!!] unexpected message: '"
+            cout << "[!!!] controller received unexpected message: '"
                  << to_string(self->last_dequeued())
                  << "'." << endl;
         }

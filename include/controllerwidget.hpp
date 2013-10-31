@@ -55,13 +55,13 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
         return get(m_res_current, "res_current");
     }
 
-    inline void set_cpu_max(std::uint32_t max) {
+    inline void set_cpu_max(size_t max) {
         cpu_slider()->setRange(0, static_cast<int>(max));
         cpu_slider()->setTickInterval(1);
         cpu_slider()->setTickPosition(QSlider::TicksBelow);
     }
 
-    inline void set_gpu_max(std::uint32_t max) {
+    inline void set_gpu_max(size_t max) {
         gpu_slider()->setRange(0, static_cast<int>(max));
         gpu_slider()->setTickInterval(1);
         gpu_slider()->setTickPosition(QSlider::TicksBelow);

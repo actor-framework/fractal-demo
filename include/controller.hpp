@@ -10,14 +10,14 @@ class controller : public cppa::event_based_actor {
  public:
 
     controller(cppa::actor_ptr server);
-    virtual void init() override;
+    void init();
 
  private:
 
-    void init(cppa::actor_ptr widget);
     void send_worker_config();
 
     cppa::actor_ptr m_server;
+    cppa::actor_ptr m_widget;
 
     std::uint32_t m_use_normal;
     std::uint32_t m_use_opencl;

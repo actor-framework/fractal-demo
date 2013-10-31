@@ -34,13 +34,13 @@ int main(int argc, char** argv) {
     // announce some messaging types
     announce<vector<int>>();
     announce<vector<float>>();
+    announce<set<actor_ptr>>();
     announce(typeid(QByteArray), create_unique<q_byte_array_info>());
     // sent from server to client
     announce_tuple<atom_value, uint32_t, uint32_t, uint32_t, uint32_t,
                    float_type, float_type, float_type, float_type>();
     // sent from client to server
     announce_tuple<atom_value, uint32_t, QByteArray>();
-    announce_tuple<atom_value, uint32_t, QByteArray, bool>();
     // parse command line options
     string host;
     uint16_t port = 20283;
@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
                           make_pair(1680,945),
                           make_pair(1920,1080),
                           make_pair(2560,1440)});
-        send_as(ctrl_widget->as_actor(), ctrl, atom("controller"));
+        send_as(ctrl_widget->as_actor(), ctrl, atom("widget"));
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

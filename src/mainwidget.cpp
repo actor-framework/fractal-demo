@@ -19,27 +19,28 @@ MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
     m_imagelabel(nullptr)
 {
     set_message_handler (
-        on(atom("result"), arg_match) >> [=](const QByteArray& ba) {
+        on_arg_match >> [=](const QByteArray& ba) {
             get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
         },
         on(atom("done")) >> [] { },
         others() >> [=] {
-            cout << "[!!!] unexpected message: '"
+            cout << "[!!!] mainwidget received unexpected message: '"
                  << to_string(self->last_dequeued())
                  << "'." << endl;
         }
     );
 }
 
-void MainWidget::resizeEvent(QResizeEvent *event) {
-    if (m_server) {
-        const QSize& size = event->size();
-        send_as(as_actor(),
-                m_server,
-                atom("resize"),
-                static_cast<uint32_t>(size.width()),
-                static_cast<uint32_t>(size.height()));
-    }
+void MainWidget::resizeEvent(QResizeEvent *) {
+    // if (m_server) {
+    //     const QSize& size = event->size();
+    //     send_as(as_actor(),
+    //             m_server,
+    //             atom("resize"),
+    //             static_cast<uint32_t>(size.width()),
+    //             static_cast<uint32_t>(size.height()));
+    // }
+    cout << "[!!!] 'resizeEvent' ignored!" << endl;
 }
 
 void MainWidget::jumpTo() {

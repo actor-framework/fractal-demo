@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <iostream>
+#include <algorithm>
 #include <functional>
 
 #include "cppa/opt.hpp"
@@ -19,8 +20,8 @@
 #include "mainwidget.hpp"
 #include "q_byte_array_info.hpp"
 
-using namespace cppa;
 using namespace std;
+using namespace cppa;
 
 void server::send_next_job(const actor_ptr& worker) {
     if (worker == nullptr) {
@@ -46,10 +47,11 @@ void server::send_next_job(const actor_ptr& worker) {
 void server::init() {
     trap_exit(true);
     become (
-        on(atom("workers"), arg_match) >> [=] (const std::set<actor_ptr>& workers) {
+        on(atom("workers"), arg_match) >> [=] (std::set<actor_ptr> workers) {
             // todo use new workers from here on out
-            m_workers = workers;
-            for (auto& w : workers) {
+            //m_workers = workers;
+            m_workers.swap(workers);
+            for (auto& w : m_workers) {
                 send_next_job(w);
             }
         },

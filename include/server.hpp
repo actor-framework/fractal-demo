@@ -35,36 +35,14 @@ class server : public cppa::event_based_actor {
     std::uint32_t m_assign_id;
     std::uint32_t m_iterations;
 
-    cppa::actor_ptr m_controller;
-
-    // maximum available workers
-    std::uint32_t m_max_normal;
-    std::uint32_t m_max_opencl;
-
-    // current workers in use
-    std::uint32_t m_cur_normal;
-    std::uint32_t m_cur_opencl;
-
-    // limit through controller
-    std::uint32_t m_lim_normal;
-    std::uint32_t m_lim_opencl;
-
-    // idle workes
-    std::vector<cppa::actor_ptr> m_normal_actor_buffer;
-    std::vector<cppa::actor_ptr> m_opencl_actor_buffer;
-
-    // all workers
-    std::set<cppa::actor_ptr> m_normal;
-    std::set<cppa::actor_ptr> m_opencl;
-
-    // distributed jobs
-    std::map<cppa::actor_ptr, std::uint32_t> m_current_jobs;
+    std::set<cppa::actor_ptr> m_workers;
+    std::map<cppa::actor_ptr, std::uint32_t> m_jobs;
 
     fractal_request_stream m_stream;
 
-    void init(cppa::actor_ptr image_receiver);
+    void init(cppa::actor_ptr counter);
 
-    void send_next_job(const cppa::actor_ptr& worker, bool is_opencl_enabled);
+    void send_next_job(const cppa::actor_ptr& worker);
 
 };
 

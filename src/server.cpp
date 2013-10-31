@@ -22,7 +22,7 @@
 using namespace cppa;
 using namespace std;
 
-void server::send_next_job(const actor_ptr& worker, bool is_opencl_enabled) {
+void server::send_next_job(const actor_ptr& worker) {
     if (worker == nullptr) {
         cerr << "send_next_job(nullptr) called" << endl;
     }
@@ -40,118 +40,50 @@ void server::send_next_job(const actor_ptr& worker, bool is_opencl_enabled) {
          max_re(fr),
          min_im(fr),
          max_im(fr));
-    m_current_jobs.insert(make_pair(worker, next_id));
-    if (is_opencl_enabled) { ++m_cur_opencl; }
-    else                   { ++m_cur_normal; }
-//    cout << "working (" << m_cur_normal << "/" << m_max_normal
-//         << ") ["       << m_cur_opencl << "/" << m_max_opencl << "]"
-//         << endl;
+    m_jobs.insert(make_pair(worker, next_id));
 }
 
-void server::init(actor_ptr image_receiver) {
+void server::init(actor_ptr counter) {
     become (
-        on(atom("controller")) >> [=] {
-            link_to(last_sender());
-            m_controller = last_sender();
-            send(m_controller, atom("setMax"), m_max_normal, m_max_opencl);
-        },
-        on(atom("newWorker"), arg_match) >> [=] (bool is_opencl_enabled) {
-            cout << "new worker is opencl-enabled:" << is_opencl_enabled << endl;
-            auto w = last_sender();
-            if (w) {
-                link_to(w);
-                if (is_opencl_enabled) {
-                    ++m_max_opencl;
-                    m_opencl_actor_buffer.push_back(last_sender());
-                    m_opencl.insert(last_sender());
-                }
-                else {
-                    ++m_max_normal;
-                    m_normal_actor_buffer.push_back(last_sender());
-                    m_normal.insert(last_sender());
-                }
-                //send_next_job(w, is_opencl_enabled);
-                send(self, atom("distribute"));
-                // send maximum available gpus to controller
-                if (m_controller != nullptr) {
-                    send(m_controller, atom("setMax"), m_max_normal, m_max_opencl);
-                }
-                cout << "known workers: " << m_max_normal << ", " << m_max_opencl << endl;
-            }
-        },
-        on(atom("distribute")) >> [=] {
-            cout << "in distribute" << endl;
-            while(m_cur_normal < m_lim_normal &&
-                  !m_normal_actor_buffer.empty()) {
-                send_next_job(m_normal_actor_buffer.back(), false);
-                m_normal_actor_buffer.pop_back();
-                cout << "normal workers left: " << m_normal_actor_buffer.size() << endl;
-            }
-            while(m_cur_opencl < m_lim_opencl &&
-                  !m_opencl_actor_buffer.empty()) {
-                send_next_job(m_opencl_actor_buffer.back(), true);
-                m_opencl_actor_buffer.pop_back();
-                cout << "opencl workers left: " << m_opencl_actor_buffer.size() << endl;
-            }
-        },
-        on(atom("limWorkers"), arg_match) >> [=] (uint32_t limit, bool is_opencl) {
-            if (is_opencl) {
-                if (limit > m_lim_opencl) { send(self, atom("distribute")); };
-                m_lim_opencl = limit;
-            }
-            else {
-                if (limit > m_lim_normal) { send(self, atom("distribute")); };
-                m_lim_normal = limit;
+        on(atom("workers"), arg_match) >> [=] (const std::set<actor_ptr>& workers) {
+            // todo use new workers from here on out
+            m_workers = workers;
+            for (auto& w : workers) {
+                send_next_job(w);
             }
         },
         on(atom("quit")) >> [=] {
             quit();
         },
         on(atom("result"), arg_match) >> [=](uint32_t id,
-                                             const QByteArray& image,
-                                             bool is_opencl_enabled) {
-            if (is_opencl_enabled) {
-                cout << "result from opencl worker" << endl;
-                --m_cur_opencl;
-                m_opencl_actor_buffer.push_back(last_sender());
-            }
-            else {
-                cout << "result from normal worker" << endl;
-                --m_cur_normal;
-                m_normal_actor_buffer.push_back(last_sender());
-            }
-            send(image_receiver, atom("result"), id, image);
+                                             const QByteArray& image) {
+            send(counter, atom("result"), id, image);
             if (m_stream.at_end()) {
-                //send(image_receiver, atom("done"), m_next_id);
+                // provides endless stream
                 m_stream.loop_stack();
             }
-            send(self, atom("distribute"));
+            auto a = last_sender();
+            auto w = m_workers.find(a);
+            if (w != m_workers.end()) {
+                send_next_job(a);
+            }
+            auto j = m_jobs.find(a);
+            if (j != m_jobs.end()) {
+                m_jobs.erase(j);
+            }
         },
         on(atom("resize"), arg_match) >> [=](uint32_t new_width,
                                              uint32_t new_height) {
             m_stream.resize(new_width, new_height);
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
-            cout << "[!!!] disconnect" << endl;
-            // todo decrement worker count accurdingly
-            auto dead = last_sender();
-            auto w = m_current_jobs.find(dead);
-            if (w != m_current_jobs.end()) {
-                // todo remove from next picture list
-                send(image_receiver, atom("dropped"), w->second);
-                m_current_jobs.erase(w);
-            }
-            auto n = m_normal.find(dead);
-            if (n != m_normal.end()) {
-                --m_max_normal;
-                m_normal.erase(n);
-            }
-            else {
-                auto o = m_opencl.find(dead);
-                if (o != m_opencl.end()) {
-                    --m_max_opencl;
-                    m_opencl.erase(o);
-                }
+            cout << "[!!!] someone disconnected" << endl;
+            auto a = last_sender();
+            auto j = m_jobs.find(a);
+            if (j != m_jobs.end()) {
+                send(counter, atom("dropped"), j->first);
+                m_jobs.erase(j);
+                // todo remove from worker set?
             }
         },
         others() >> [=] {
@@ -166,8 +98,8 @@ void server::init() {
     trap_exit(true);
     // wait for init message
     become (
-        on(atom("init"), arg_match) >> [=](actor_ptr image_receiver) {
-            init(image_receiver);
+        on(atom("init"), arg_match) >> [=](actor_ptr counter) {
+            init(counter);
         }
     );
 }
@@ -182,14 +114,7 @@ struct ini_helper {
 };
 
 server::server(config_map& ini)
-: m_next_id(0)
-, m_controller(nullptr)
-, m_max_normal(0)
-, m_max_opencl(0)
-, m_cur_normal(0)
-, m_cur_opencl(0)
-, m_lim_normal(0)
-, m_lim_opencl(0) {
+: m_next_id(0) {
     ini_helper rd{ini};
     auto width      = rd("width",      default_width);
     auto height     = rd("height",     default_height);

@@ -15,8 +15,10 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     m_resolution_slider(nullptr)
 {
     set_message_handler (
-        on(atom("setMax"), arg_match) >> [=] (uint32_t max_cpu, uint32_t max_gpu) {
+        on(atom("max_cpu"), arg_match) >> [=] (uint32_t max_cpu) {
             set_cpu_max(max_cpu);
+        },
+        on(atom("max_gpu"), arg_match) >> [=] (uint32_t max_gpu) {
             set_gpu_max(max_gpu);
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {

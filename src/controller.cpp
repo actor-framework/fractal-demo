@@ -1,4 +1,7 @@
+
 #include <set>
+#include <iterator>
+#include <algorithm>
 
 #include "include/controller.hpp"
 
@@ -16,25 +19,27 @@ void controller::send_worker_config() {
         return;
     }
     set<actor_ptr> new_workers;
-    new_workers.insert(m_normal.begin(), m_normal.begin()+m_use_normal);
-    new_workers.insert(m_opencl.begin(), m_opencl.begin()+m_use_opencl);
+    copy_n(m_normal.begin(), m_use_normal, inserter(new_workers, new_workers.end()));
+    copy_n(m_opencl.begin(), m_use_opencl, inserter(new_workers, new_workers.end()));
     send(m_server, atom("workers"), move(new_workers));
 }
 
 void controller::init(actor_ptr widget) {
     become(
         on(atom("add")) >> [=] {
-            send(last_sender(), atom("identity"));
+            return atom("identity");
         },
         on(atom("opencl")) >> [=] {
             auto a = last_sender();
             link_to(a);
-            m_opencl.push_back(a);
+            m_opencl.insert(a);
+            send(widget, atom("max_gpu"), m_opencl.size());
         },
         on(atom("normal")) >> [=] {
             auto a = last_sender();
             link_to(a);
-            m_normal.push_back(a);
+            m_normal.insert(a);
+            send(widget, atom("max_cpu"), m_normal.size());
         },
         on(atom("resize"), arg_match) >> [=] (uint32_t, uint32_t) {
             forward_to(m_server);
@@ -50,8 +55,28 @@ void controller::init(actor_ptr widget) {
         on(atom("FPS"), arg_match) >> [=] (uint32_t) {
             forward_to(widget);
         },
+        on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
+            auto dead = last_sender();
+            if (dead == widget)        { cout << "[!!!] GUI died" << endl; }
+            else if (dead == m_server) { cout << "[!!!] server died" << endl; }
+            else {
+                auto n = m_normal.find(dead);
+                if (n != m_normal.end()) {
+                    m_normal.erase(n);
+                    send(widget, atom("max_cpu"), m_normal.size());
+                }
+                else {
+                    auto o = m_opencl.find(dead);
+                    if (o != m_opencl.end()) {
+                        m_opencl.erase(o);
+                        send(widget, atom("max_gpu"), m_opencl.size());
+                    }
+                }
+                send_worker_config();
+            }
+        },
         others() >> [=] {
-            cout << "[!!!] counter received unexpected message: '"
+            cout << "[!!!] controller received unexpected message: '"
                  << to_string(last_dequeued())
                  << "'." << endl;
         }

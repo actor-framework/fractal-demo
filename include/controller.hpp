@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_HPP
 #define CONTROLLER_HPP
 
-#include <vector>
+#include <set>
 
 #include "cppa/cppa.hpp"
 
@@ -22,8 +22,8 @@ class controller : public cppa::event_based_actor {
     std::uint32_t m_use_normal;
     std::uint32_t m_use_opencl;
 
-    std::vector<cppa::actor_ptr> m_opencl;
-    std::vector<cppa::actor_ptr> m_normal;
+    std::set<cppa::actor_ptr> m_opencl;
+    std::set<cppa::actor_ptr> m_normal;
 };
 
 #endif // CONTROLLER_HPP

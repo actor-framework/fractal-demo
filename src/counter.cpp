@@ -35,7 +35,7 @@ bool counter::probe() {
     }
 }
 
-void counter::init(actor_ptr widget) {
+void counter::init(actor_ptr widget, actor_ptr ctrl) {
     become(
         on(atom("tick")) >> [=] {
             while (probe());
@@ -55,9 +55,10 @@ void counter::init(actor_ptr widget) {
             m_intervals[m_idx] = duration_cast<milliseconds>(now - m_last);
             m_idx = (m_idx + 1) % m_intervals.size();
             auto total = accumulate(begin(m_intervals), end(m_intervals), milliseconds(0));
-            m_delay = total.count() / 100;
+            m_delay = total.count() / m_intervals.size();
             m_last = now;
-            aout << "adjust framerate to: " << 1000/m_delay << endl;
+            aout << "adjusted delay to: " << m_delay << endl;
+            send(ctrl, atom("fps"), m_delay);
             // todo track ips, adjust framerate
         },
         on(atom("dropped"), arg_match) >> [=] (uint32_t id) {
@@ -75,9 +76,9 @@ void counter::init(actor_ptr widget) {
 void counter::init() {
     trap_exit(true);
     become (
-        on(atom("init"), arg_match) >> [=] (actor_ptr widget) {
+        on(atom("init"), arg_match) >> [=] (actor_ptr widget, actor_ptr ctrl) {
             delayed_send(self, chrono::milliseconds(m_delay), atom("tick"));
-            init(widget);
+            init(widget, ctrl);
         }
     );
 }

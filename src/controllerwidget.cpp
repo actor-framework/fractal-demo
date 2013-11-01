@@ -17,6 +17,7 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     m_gpu_slider(nullptr),
     m_resolution_slider(nullptr),
     m_res_current(nullptr),
+    m_time_current(nullptr),
     m_resolutions{make_pair(800,450),
                   make_pair(1024,576),
                   make_pair(1280,720),
@@ -31,12 +32,15 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
         on(atom("max_gpu"), arg_match) >> [=] (size_t max_gpu) {
             set_gpu_max(max_gpu);
         },
+        on(atom("fps"), arg_match) >> [=] (uint32_t fps) {
+            set_fps(fps);
+        },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
             cout << "[!!!] master died" << endl;
             // quit
         },
         others() >> [=] {
-            cout << "[!!!] controller received unexpected message: '"
+            cout << "[!!!] controller ui received unexpected message: '"
                  << to_string(self->last_dequeued())
                  << "'." << endl;
         }

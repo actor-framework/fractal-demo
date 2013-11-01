@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
             // todo tell widget about other actors?
             window.resize(ini.get_as<int>("fractals", "width"),
                           ini.get_as<int>("fractals", "height"));
-            send_as(nullptr, cntr, atom("init"), main.mainWidget->as_actor());
+            send_as(nullptr, cntr, atom("init"), main.mainWidget->as_actor(), ctrl);
             window.show();
             app.quitOnLastWindowClosed();
             app.exec();

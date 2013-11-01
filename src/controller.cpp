@@ -62,7 +62,7 @@ void controller::init() {
             m_use_opencl = limit;
             send_worker_config();
         },
-        on(atom("FPS"), arg_match) >> [=] (uint32_t) {
+        on(atom("fps"), arg_match) >> [=] (uint32_t) {
             forward_to(m_widget);
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {

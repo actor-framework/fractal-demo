@@ -55,6 +55,10 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
         return get(m_res_current, "res_current");
     }
 
+    inline QLabel* time_current() {
+        return get(m_time_current, "time_current");
+    }
+
     inline void set_cpu_max(size_t max) {
         cpu_slider()->setRange(0, static_cast<int>(max));
         cpu_slider()->setTickInterval(1);
@@ -67,6 +71,10 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
         gpu_slider()->setTickPosition(QSlider::TicksBelow);
     }
 
+    inline void set_fps(uint32_t time) {
+        time_current()->setNum(static_cast<int>(time));
+    }
+
 
     typedef cppa::actor_widget_mixin<QWidget> super;
 
@@ -77,6 +85,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     QSlider* m_resolution_slider;
 
     QLabel* m_res_current;
+    QLabel* m_time_current;
 
     std::vector<QString> m_res_strings;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;

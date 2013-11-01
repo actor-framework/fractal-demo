@@ -34,6 +34,7 @@ void counter::init(actor_ptr widget) {
             if (j != m_buffer.end()) {
                 send(widget, move(j->second)); // todo is this valid?
                 m_buffer.erase(j);
+                ++m_next;
             }
             delayed_send(self, chrono::milliseconds(m_delay), atom("tick"));
         },

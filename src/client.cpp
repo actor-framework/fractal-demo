@@ -140,6 +140,12 @@ class clbroker : public event_based_actor {
                              QImage::Format_RGB32};
                 for (uint32_t y = 0; y < clheight; ++y) {
                     for (uint32_t x = 0; x < clwidth; ++x) {
+                        // double n = result[x+y*clwidth];
+                        // double n_min = 1;
+                        // double n_max = cliterations;
+                        // auto u = log(n/n_min) / log(n_max/n_min);
+                        // uint32_t idx = u * cliterations;
+                        // image.setPixel(x,y,palette[idx].rgb());
                         image.setPixel(x,y,palette[result[x+y*clwidth]].rgb());
                     }
                 }

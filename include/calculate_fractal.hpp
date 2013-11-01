@@ -1,10 +1,13 @@
 #ifndef CALCULATE_FRACTAL_HPP
 #define CALCULATE_FRACTAL_HPP
 
+#include <cmath>
 #include <vector>
 
 #include <QColor>
 #include <QImage>
+
+#include <iostream>
 
 inline void calculate_palette(std::vector<QColor>& storage, uint32_t iterations) {
     // generating new colors
@@ -12,6 +15,7 @@ inline void calculate_palette(std::vector<QColor>& storage, uint32_t iterations)
     storage.reserve(iterations + 1);
     for (uint32_t i = 0; i < iterations; ++i) {
         QColor tmp;
+        // tmp.setHsv(((135.0 / iterations) * i) + 180.0, 255, 200);
         tmp.setHsv(((180.0 / iterations) * i) + 180.0, 255, 200);
         storage.push_back(tmp);
     }
@@ -43,6 +47,12 @@ QImage calculate_fractal(std::vector<QColor>& palette,
                 cond = z_re*z_re + z_im*z_im;
                 ++iteration;
             } while (iteration < iterations && cond <= 4.0f);
+            // FloatType n = iteration;
+            // FloatType n_min = 0;
+            // FloatType n_max = iterations;
+            // auto u = log(n/n_min) / log(n_max/n_min);
+            // uint32_t idx = u * iterations;
+            // image.setPixel(x,y,palette[idx].rgb());
             image.setPixel(x,y,palette[iteration].rgb());
         }
     }

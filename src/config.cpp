@@ -6,6 +6,7 @@ const char* image_file_ending = ".png";
 const std::uint32_t default_width = 1920;
 const std::uint32_t default_height = 1080;
 const std::uint32_t default_interval = 2000;
+// const std::uint32_t default_iterations = 2500;
 const std::uint32_t default_iterations = 1000;
 const std::uint32_t default_queuesize = 15;
 

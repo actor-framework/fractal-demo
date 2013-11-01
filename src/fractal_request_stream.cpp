@@ -222,14 +222,50 @@ void fractal_request_stream::add_chain(std::vector<std::pair<float_type,float_ty
 
 void fractal_request_stream::loop_stack() {
     std::vector<std::pair<float_type,float_type>> chain;
-//    chain.emplace_back(-1.86572513851221765677, 0.0       );
+    // coords are visited top down
+    /* ######################### */
+    chain.emplace_back(0.28692299709,-0.01218247138); // geode
     chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
+    chain.emplace_back(0.001643721971153,          0.822467633298876); // buzzsaw
+    chain.emplace_back(-0.089,0.655);
     chain.emplace_back(-0.7458555,                 0.10550365);
-//    chain.emplace_back(-1.86572513851221765677, 0.0       );
+    /* ######################### */
+    chain.emplace_back(0.28692299709,-0.01218247138); // geode
     chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
-    chain.emplace_back(-0.7458555,              0.10550365);
+    chain.emplace_back(0.001643721971153,          0.822467633298876); // buzzsaw
+    chain.emplace_back(-0.089,0.655);
+    chain.emplace_back(-0.7458555,                 0.10550365);
+    /* ######################### */
+    chain.emplace_back(0.28692299709,-0.01218247138); // geode
+    chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
+    chain.emplace_back(0.001643721971153,          0.822467633298876); // buzzsaw
+    chain.emplace_back(-0.089,0.655);
+    chain.emplace_back(-0.7458555,                 0.10550365);
+    /* ######################### */
+    chain.emplace_back(0.28692299709,-0.01218247138); // geode
+    chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
+    chain.emplace_back(0.001643721971153,          0.822467633298876); // buzzsaw
+    chain.emplace_back(-0.089,0.655);
+    chain.emplace_back(-0.7458555,                 0.10550365);
+    /* ######################### */
     add_chain(chain, 100);
     m_operations.emplace_back(reset_op, do_once);
+
+    /* nowhereland (not enough iterations or coloring method sucks)*/
+    // chain.emplace_back(0.73752777,-0.12849548); // nebula
+    // chain.emplace_back(-0.7700, -0.1300);
+    // chain.emplace_back(0.73752777,-0.12849548); // nebula
+
+    /* can not zoom enough*/
+    // chain.emplace_back(-1.369,0.005);
+    // chain.emplace_back(0.3750001200618655, -0.2166393884377127);
+    // chain.emplace_back(-1.74975914513036646, -0.00000000368513796); // vortex
+    // chain.emplace_back(-1.74975914513271613, -0.00000000368338015); // microbug
+    // chain.emplace_back(-1.74975914513272790, -0.00000000368338638); // nucleus
+    // chain.emplace_back(-0.13856524454488, -0.64935990748190);
+    
+    /* not interesting */
+    // chain.emplace_back(-1.6735,-0.0003318); // x-wing
 }
 
 void fractal_request_stream::resize(std::uint32_t new_width, std::uint32_t new_height) {

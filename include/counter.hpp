@@ -25,6 +25,8 @@ class counter : public cppa::event_based_actor {
     std::set<std::uint32_t> m_dropped;
     std::map<std::uint32_t, QByteArray> m_buffer;
 
+    std::uint32_t m_buffer_limit;
+
     std::uint32_t m_idx;
     std::chrono::steady_clock::time_point m_last;
     std::vector<std::chrono::milliseconds> m_intervals;

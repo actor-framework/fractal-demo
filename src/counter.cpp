@@ -14,11 +14,13 @@ using namespace chrono;
 
 
 counter::counter() :
- m_next(0),
- m_delay(20),
+ m_next(0), // image id, should start with 0
+ m_delay(20), // delay between images, is adjusted later on
+ m_buffer_limit(300), // images buffers, overhead is discarded
  m_idx(0),
  m_last(steady_clock::now()),
- m_intervals(100) {
+ m_intervals(100) // number of values used to calculate mean fps
+{
     fill(begin(m_intervals), end(m_intervals), std::chrono::milliseconds(20));
 }
 
@@ -50,7 +52,12 @@ void counter::init(actor_ptr widget, actor_ptr ctrl) {
         },
         on(atom("image"), arg_match) >> [=] (uint32_t id,
                                              const QByteArray& ba) {
-            m_buffer.insert(make_pair(id, ba));
+            if (m_buffer.size() > m_buffer_limit) {
+                m_dropped.insert(id);
+            }
+            else {
+                m_buffer.insert(make_pair(id, ba));
+            }
             steady_clock::time_point now = steady_clock::now();
             m_intervals[m_idx] = duration_cast<milliseconds>(now - m_last);
             m_idx = (m_idx + 1) % m_intervals.size();

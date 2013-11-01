@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
         };
         auto send_workers = [&](const actor_ptr& controller) {
             for (auto w : workers) {
-                send_as(w, controller, atom("newWorker"));
+                send_as(w, controller, atom("add"));
             }
         };
         if (publish_workers) {

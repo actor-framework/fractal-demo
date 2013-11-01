@@ -18,7 +18,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     explicit ControllerWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
 
     inline void set_controller(const cppa::actor_ptr& ptr) { m_controller = ptr; }
-    void initialize(std::vector<std::pair<std::uint32_t, std::uint32_t>> resolutions);
+    void initialize();
 
  public slots:
 
@@ -78,6 +78,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     QLabel* m_res_current;
 
+    std::vector<QString> m_res_strings;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;
 };
 

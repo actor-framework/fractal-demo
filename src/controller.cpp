@@ -15,7 +15,9 @@ controller::controller(actor_ptr server)
 
 void controller::send_worker_config() {
     if (m_use_normal > m_normal.size() || m_use_opencl > m_opencl.size()) {
-        cout << "[!!!] not enough workers known" << endl;
+        cout << "[!!!] only "  << m_normal.size()
+             << " normal and " << m_opencl.size()
+             << " workers known" << endl;
         return;
     }
     set<actor_ptr> new_workers;
@@ -36,14 +38,14 @@ void controller::init() {
             return atom("identity");
         },
         on(atom("normal")) >> [=] {
-            cout << "normal actor connected" << endl;
+//            cout << "normal actor connected" << endl;
             auto a = last_sender();
             link_to(a);
             m_normal.insert(a);
             send(m_widget, atom("max_cpu"), m_normal.size());
         },
         on(atom("opencl")) >> [=] {
-            cout << "opencl actor connected" << endl;
+//            cout << "opencl actor connected" << endl;
             auto a = last_sender();
             link_to(a);
             m_opencl.insert(a);
@@ -84,7 +86,7 @@ void controller::init() {
             }
         },
         on(atom("quit")) >> [=] {
-            cout << "controller received quit, but behavior is not implemented ..." << endl;
+            self->quit();
         },
         others() >> [=] {
             cout << "[!!!] controller received unexpected message: '"

@@ -246,12 +246,7 @@ int main(int argc, char** argv) {
         ctrl_ui.setupUi(&window);
         auto ctrl_widget = ctrl_ui.controllerWidget;
         ctrl_widget->set_controller(ctrl);
-        ctrl_widget->initialize({make_pair(800,450),
-                          make_pair(1024,576),
-                          make_pair(1280,720),
-                          make_pair(1680,945),
-                          make_pair(1920,1080),
-                          make_pair(2560,1440)});
+        ctrl_widget->initialize();
         send_as(ctrl_widget->as_actor(), ctrl, atom("widget"));
         window.show();
         app.quitOnLastWindowClosed();

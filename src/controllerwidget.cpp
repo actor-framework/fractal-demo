@@ -1,4 +1,7 @@
 
+#include <sstream>
+#include <QString>
+
 #include "cppa/cppa.hpp"
 
 #include "include/controllerwidget.hpp"
@@ -12,7 +15,14 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     m_controller(nullptr),
     m_cpu_slider(nullptr),
     m_gpu_slider(nullptr),
-    m_resolution_slider(nullptr)
+    m_resolution_slider(nullptr),
+    m_res_current(nullptr),
+    m_resolutions{make_pair(800,450),
+                  make_pair(1024,576),
+                  make_pair(1280,720),
+                  make_pair(1680,945),
+                  make_pair(1920,1080),
+                  make_pair(2560,1440)}
 {
     set_message_handler (
         on(atom("max_cpu"), arg_match) >> [=] (size_t max_cpu) {
@@ -31,17 +41,14 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
                  << "'." << endl;
         }
     );
+    for (auto& p : m_resolutions) {
+        m_res_strings.emplace_back(QString::number(p.first)
+                                   + "x"
+                                   + QString::number(p.second));
+    }
 }
 
-void ControllerWidget::initialize(std::vector<std::pair<std::uint32_t, 
-                                                        std::uint32_t>> resolutions) {
-//    m_resolutions.push_back(make_pair(800,450));
-//    m_resolutions.push_back(make_pair(1024,576));
-//    m_resolutions.push_back(make_pair(1280,720));
-//    m_resolutions.push_back(make_pair(1680,945));
-//    m_resolutions.push_back(make_pair(1920,1080));
-//    m_resolutions.push_back(make_pair(2560,1440));
-    m_resolutions.swap(resolutions);
+void ControllerWidget::initialize() {
     resolution_slider()->setRange(0,m_resolutions.size()-1);
     resolution_slider()->setValue(m_resolutions.size()-1);
     resolution_slider()->setTickInterval(1);
@@ -66,5 +73,6 @@ void ControllerWidget::adjustCPULimit(int newLimit) {
 void ControllerWidget::adjustResolution(int idx) {
     if(m_controller != nullptr) {
         send(m_controller, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
+        res_current()->setText(m_res_strings[idx]);
     }
 }

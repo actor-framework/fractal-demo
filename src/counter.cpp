@@ -12,7 +12,7 @@ using namespace std;
 using namespace cppa;
 
 
-counter::counter() : m_next(0), m_delay(300) { }
+counter::counter() : m_next(0), m_delay(20) { }
 
 bool counter::probe() {
     auto i = m_dropped.find(m_next);

@@ -49,11 +49,15 @@ void server::init() {
     become (
         on(atom("workers"), arg_match) >> [=] (std::set<actor_ptr> workers) {
             // todo use new workers from here on out
-            //m_workers = workers;
-            m_workers.swap(workers);
-            for (auto& w : m_workers) {
+            set<actor_ptr> new_workers;
+            set_difference(begin(workers),   end(workers),
+                           begin(m_workers), end(m_workers),
+                           inserter(new_workers, end(new_workers)));
+            for (auto& w : new_workers) {
                 send_next_job(w);
             }
+            //m_workers = workers;
+            m_workers.swap(workers);
         },
         on(atom("quit")) >> [=] {
             quit();

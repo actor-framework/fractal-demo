@@ -53,6 +53,7 @@ void counter::init(actor_ptr widget, actor_ptr ctrl) {
         on(atom("image"), arg_match) >> [=] (uint32_t id,
                                              const QByteArray& ba) {
             if (m_buffer.size() > m_buffer_limit) {
+                aout << "[!!!] buffer is too full, dropping images" << endl;
                 m_dropped.insert(id);
             }
             else {

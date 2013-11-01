@@ -48,7 +48,6 @@ void server::init() {
     trap_exit(true);
     become (
         on(atom("workers"), arg_match) >> [=] (std::set<actor_ptr> workers) {
-            // todo use new workers from here on out
             set<actor_ptr> new_workers;
             set_difference(begin(workers),   end(workers),
                            begin(m_workers), end(m_workers),
@@ -56,7 +55,6 @@ void server::init() {
             for (auto& w : new_workers) {
                 send_next_job(w);
             }
-            //m_workers = workers;
             m_workers.swap(workers);
         },
         on(atom("quit")) >> [=] {

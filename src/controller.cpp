@@ -15,7 +15,7 @@ controller::controller(actor_ptr server)
 
 void controller::send_worker_config() {
     if (m_use_normal > m_normal.size() || m_use_opencl > m_opencl.size()) {
-        cout << "[!!!] only "  << m_normal.size()
+        aout << "[!!!] only "  << m_normal.size()
              << " normal and " << m_opencl.size()
              << " workers known" << endl;
         return;
@@ -89,7 +89,7 @@ void controller::init() {
             self->quit();
         },
         others() >> [=] {
-            cout << "[!!!] controller received unexpected message: '"
+            aout << "[!!!] controller received unexpected message: '"
                  << to_string(last_dequeued())
                  << "'." << endl;
         }

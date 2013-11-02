@@ -105,7 +105,7 @@ INCLUDE( ${QT_USE_FILE} )
 
 # this command will generate rules that will run rcc on all files from SAMPLE_RCS
 # in result SAMPLE_RC_SRCS variable will contain paths to files produced by rcc
-QT4_ADD_RESOURCES( FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} )
+QT4_ADD_RESOURCES( FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} fractal.qrc )
 
 # this will run uic on .ui files:
 QT4_WRAP_UI( FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS} )

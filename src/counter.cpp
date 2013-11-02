@@ -65,7 +65,7 @@ void counter::init(actor_ptr widget, actor_ptr ctrl) {
             auto total = accumulate(begin(m_intervals), end(m_intervals), milliseconds(0));
             m_delay = total.count() / m_intervals.size();
             m_last = now;
-            aout << "adjusted delay to: " << m_delay << endl;
+            // aout << "adjusted delay to: " << m_delay << endl;
             send(ctrl, atom("fps"), m_delay);
             // todo track ips, adjust framerate
         },

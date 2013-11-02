@@ -32,15 +32,15 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
         on(atom("max_gpu"), arg_match) >> [=] (size_t max_gpu) {
             set_gpu_max(max_gpu);
         },
-        on(atom("fps"), arg_match) >> [=] (uint32_t fps) {
-            set_fps(fps);
+        on(atom("fps"), arg_match) >> [=] (uint32_t) {
+
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
-            cout << "[!!!] master died" << endl;
+            aout << "[!!!] master died" << endl;
             // quit
         },
         others() >> [=] {
-            cout << "[!!!] controller ui received unexpected message: '"
+            aout << "[!!!] controller ui received unexpected message: '"
                  << to_string(self->last_dequeued())
                  << "'." << endl;
         }
@@ -61,14 +61,14 @@ void ControllerWidget::initialize() {
 
 
 void ControllerWidget::adjustGPULimit(int newLimit) {
-    cout << "new GPU limit: " << newLimit << endl;
+    // aout << "new GPU limit: " << newLimit << endl;
     if(m_controller != nullptr) {
         send(m_controller, atom("limit"), atom("opencl"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustCPULimit(int newLimit) {
-    cout << "new CPU limit: " << newLimit << endl;
+    // aout << "new CPU limit: " << newLimit << endl;
     if(m_controller != nullptr) {
         send(m_controller, atom("limit"), atom("normal"), static_cast<uint32_t>(newLimit));
     }

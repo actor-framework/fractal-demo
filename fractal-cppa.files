@@ -40,3 +40,5 @@ include/counter.hpp
 src/counter.cpp
 include/controller.hpp
 src/controller.cpp
+
+fractal.qrc

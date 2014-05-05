@@ -30,14 +30,15 @@ bool counter::probe() {
         return false;
     }
     else {
-        aout << "dropped: " << m_next << endl;
+        cout << "dropped: " << m_next << endl;
         m_dropped.erase(i);
         ++m_next;
         return true;
     }
 }
 
-void counter::init(actor_ptr widget, actor_ptr ctrl) {
+
+void counter::init(actor widget, actor ctrl) {
     become(
         on(atom("tick")) >> [=] {
             while (probe());
@@ -48,12 +49,12 @@ void counter::init(actor_ptr widget, actor_ptr ctrl) {
                 m_buffer.erase(j);
                 ++m_next;
             }
-            delayed_send(self, chrono::milliseconds(m_delay), atom("tick"));
+            delayed_send(this, chrono::milliseconds(m_delay), atom("tick"));
         },
         on(atom("image"), arg_match) >> [=] (uint32_t id,
                                              const QByteArray& ba) {
             if (m_buffer.size() > m_buffer_limit) {
-                aout << "[!!!] buffer is too full, dropping images" << endl;
+                aout(this) << "[!!!] buffer is too full, dropping images" << endl;
                 m_dropped.insert(id);
             }
             else {
@@ -81,13 +82,5 @@ void counter::init(actor_ptr widget, actor_ptr ctrl) {
     );
 }
 
-void counter::init() {
-    trap_exit(true);
-    become (
-        on(atom("init"), arg_match) >> [=] (actor_ptr widget, actor_ptr ctrl) {
-            delayed_send(self, chrono::milliseconds(m_delay), atom("tick"));
-            init(widget, ctrl);
-        }
-    );
-}
+
 

@@ -8,45 +8,46 @@
 using namespace std;
 using namespace cppa;
 
-controller::controller(actor_ptr server)
+controller::controller(actor server)
 : m_server(server)
 , m_use_normal(0)
 , m_use_opencl(0) { }
 
 void controller::send_worker_config() {
     if (m_use_normal > m_normal.size() || m_use_opencl > m_opencl.size()) {
-        aout << "[!!!] only "  << m_normal.size()
-             << " normal and " << m_opencl.size()
-             << " workers known" << endl;
+        aout(this) << "[!!!] only "  << m_normal.size()
+                   << " normal and " << m_opencl.size()
+                   << " workers known" << endl;
         return;
     }
-    set<actor_ptr> new_workers;
+    set<actor> new_workers;
     copy_n(m_normal.begin(), m_use_normal, inserter(new_workers, new_workers.end()));
     copy_n(m_opencl.begin(), m_use_opencl, inserter(new_workers, new_workers.end()));
     send(m_server, atom("workers"), move(new_workers));
 }
 
-void controller::init() {
+behavior controller::make_behavior() {
     trap_exit(true);
-    become(
-        on(atom("widget")) >> [=] {
-            m_widget = last_sender();
+    return {
+        on(atom("widget"), arg_match) >> [=] (const actor& widget){
+            m_widget = widget;
+
             send(m_widget, atom("max_cpu"), m_normal.size());
             send(m_widget, atom("max_gpu"), m_opencl.size());
         },
         on(atom("add")) >> [=] {
             return atom("identity");
         },
-        on(atom("normal")) >> [=] {
+        on(atom("normal"), arg_match) >> [=] (const actor& client){
 //            cout << "normal actor connected" << endl;
-            auto a = last_sender();
+            auto a = client;
             link_to(a);
             m_normal.insert(a);
             send(m_widget, atom("max_cpu"), m_normal.size());
         },
-        on(atom("opencl")) >> [=] {
+        on(atom("opencl"), arg_match) >> [=] (const actor& worker){
 //            cout << "opencl actor connected" << endl;
-            auto a = last_sender();
+            auto a = worker;
             link_to(a);
             m_opencl.insert(a);
             send(m_widget, atom("max_gpu"), m_opencl.size());
@@ -65,18 +66,28 @@ void controller::init() {
         on(atom("fps"), arg_match) >> [=] (uint32_t) {
             forward_to(m_widget);
         },
-        on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
-            auto dead = last_sender();
-            if (dead == m_widget)        { cout << "[!!!] GUI died" << endl; }
-            else if (dead == m_server) { cout << "[!!!] server died" << endl; }
+
+        on(atom("EXIT"), arg_match) >> [=](const exit_msg& msg) {
+            auto dead_addr = msg.source;
+
+            if(dead_addr == m_widget)
+            {
+                aout(this) << "[!!!] GUI died" << endl;
+            }else if(dead_addr == m_server) {
+                aout(this) << "[!!!] server died" << endl;
+            }
             else {
-                auto n = m_normal.find(dead);
+                auto n = find_if(m_normal.begin(), m_normal.end(), [&](const actor& element) {
+                    return element == dead_addr;
+                });
                 if (n != m_normal.end()) {
                     m_normal.erase(n);
                     send(m_widget, atom("max_cpu"), m_normal.size());
                 }
                 else {
-                    auto o = m_opencl.find(dead);
+                    auto o = find_if(m_opencl.begin(), m_opencl.end(), [&](const actor& element) {
+                        return element == dead_addr;
+                    });
                     if (o != m_opencl.end()) {
                         m_opencl.erase(o);
                         send(m_widget, atom("max_gpu"), m_opencl.size());
@@ -86,12 +97,12 @@ void controller::init() {
             }
         },
         on(atom("quit")) >> [=] {
-            self->quit();
+            quit();
         },
         others() >> [=] {
-            aout << "[!!!] controller received unexpected message: '"
+            aout(this) << "[!!!] controller received unexpected message: '"
                  << to_string(last_dequeued())
                  << "'." << endl;
         }
-    );
+    };
 }

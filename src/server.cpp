@@ -23,16 +23,17 @@
 using namespace std;
 using namespace cppa;
 
-void server::send_next_job(const actor_ptr& worker) {
-    if (worker == nullptr) {
-        cerr << "send_next_job(nullptr) called" << endl;
+void server::send_next_job(const actor& worker) {
+    if (!worker) {
+        cerr << "Invalid actor (send_next_job())" << endl;
     }
-    if (worker == nullptr || not m_stream.next()) return;
+    if (!worker || not m_stream.next()) return;
     auto& fr = m_stream.request();
 
     auto next_id = m_next_id++;
     send(worker,
          atom("assign"),
+         this,
          width(fr),
          height(fr),
          m_iterations,
@@ -44,11 +45,11 @@ void server::send_next_job(const actor_ptr& worker) {
     m_jobs.insert(make_pair(worker, next_id));
 }
 
-void server::init() {
+behavior server::make_behavior() {
     trap_exit(true);
-    become (
-        on(atom("workers"), arg_match) >> [=] (std::set<actor_ptr> workers) {
-            set<actor_ptr> new_workers;
+    return {
+        on(atom("workers"), arg_match) >> [=] (std::set<actor> workers) {
+            set<actor> new_workers;
             set_difference(begin(workers),   end(workers),
                            begin(m_workers), end(m_workers),
                            inserter(new_workers, end(new_workers)));
@@ -60,19 +61,22 @@ void server::init() {
         on(atom("quit")) >> [=] {
             quit();
         },
-        on(atom("result"), arg_match) >> [=](uint32_t id,
-                                             const QByteArray& ba) {
+        on(atom("result"), arg_match) >> [=](const actor& worker, uint32_t id, const QByteArray& ba) {
             send(m_counter, atom("image"), id, ba);
             if (m_stream.at_end()) {
                 // provides endless stream
                 m_stream.loop_stack();
             }
-            auto a = last_sender();
-            auto w = m_workers.find(a);
+
+            auto w = find_if(m_workers.begin(), m_workers.end(), [&](const actor& element) {
+                return element == worker;
+            });
             if (w != m_workers.end()) {
-                send_next_job(a);
+                send_next_job(worker);
             }
-            auto j = m_jobs.find(a);
+            auto j = find_if(m_jobs.begin(), m_jobs.end(), [&](const pair<actor, u_int32_t>& element) {
+                return element.first == worker;
+            });
             if (j != m_jobs.end()) {
                 m_jobs.erase(j);
             }
@@ -81,22 +85,24 @@ void server::init() {
                                              uint32_t new_height) {
             m_stream.resize(new_width, new_height);
         },
-        on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
+
+        on(atom("EXIT"), arg_match) >> [=](const exit_msg& msg) {
             cout << "[!!!] someone disconnected" << endl;
-            auto a = last_sender();
-            auto j = m_jobs.find(a);
-            if (j != m_jobs.end()) {
-                send(m_counter, atom("dropped"), j->first);
-                m_jobs.erase(j);
-                // todo remove from worker set?
+            auto sender_adress = msg.source;
+            auto a = find_if(m_jobs.begin(), m_jobs.end(), [sender_adress](const pair<actor,uint32_t>& element) {
+                return element.first == sender_adress;
+            });
+            if(a != m_jobs.end()) {
+                send(m_counter, atom("dropped"), a->second);
+                m_jobs.erase(a->first);
             }
         },
         others() >> [=] {
-            cout << "[!!!] server received unexpected message: '"
-                 << to_string(last_dequeued())
-                 << "'." << endl;
+            aout(this) << "[!!!] server received unexpected message: '"
+                       << to_string(last_dequeued())
+                       << "'." << endl;
         }
-    );
+    };
 }
 
 struct ini_helper {
@@ -108,7 +114,7 @@ struct ini_helper {
     }
 };
 
-server::server(config_map& ini, cppa::actor_ptr counter)
+server::server(config_map& ini, cppa::actor counter)
 : m_next_id(0)
 , m_counter(counter) {
     ini_helper rd{ini};

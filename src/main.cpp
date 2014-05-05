@@ -32,9 +32,10 @@ std::vector<std::string> split(const std::string& str, char delim, bool keep_emp
 
 int main(int argc, char** argv) {
     // announce some messaging types
+    scoped_actor self;
     announce<vector<int>>();
     announce<vector<float>>();
-    announce<set<actor_ptr>>();
+    announce<set<actor>>();
     announce(typeid(QByteArray), create_unique<q_byte_array_info>());
     // sent from server to client
     announce_tuple<atom_value, uint32_t, uint32_t, uint32_t, uint32_t,
@@ -73,7 +74,7 @@ int main(int argc, char** argv) {
     if (!args_valid) print_desc_and_exit(&desc)();
     if (!is_server && !is_controller) {
         if (num_workers == 0) num_workers = 1;
-        std::vector<actor_ptr> workers;
+        std::vector<actor> workers;
 #       ifdef ENABLE_OPENCL
         // spawn at most one GPU worker
         if (with_opencl) {
@@ -88,13 +89,13 @@ int main(int argc, char** argv) {
         }
         auto emergency_shutdown = [&] {
             for (auto w : workers) {
-                send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
+                self->send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
             }
-            await_all_others_done();
+            await_all_actors_done();
             shutdown();
             exit(-1);
         };
-        auto send_workers = [&](const actor_ptr& controller) {
+        auto send_workers = [&](const actor& controller) {
             for (auto w : workers) {
                 send_as(w, controller, atom("add"));
             }
@@ -106,15 +107,15 @@ int main(int argc, char** argv) {
                      << e.what() << endl;
                 emergency_shutdown();
             }
-            receive_loop (
-                on(atom("getWorkers")) >> [&] {
-                    auto controller = self->last_sender();
-                    send_workers(controller);
-                },
-                others() >> [] {
-                    cerr << "unexpected: "
-                         << to_string(self->last_dequeued()) << endl;
-                }
+            self->receive_loop (
+                        on(atom("getWorkers"), arg_match) >> [&] (const actor& last_sender) {
+                            auto controller = last_sender;
+                            send_workers(controller);
+                        },
+                        others() >> [&] {
+                            cerr << "unexpected: "
+                                 << to_string(self->last_dequeued()) << endl;
+                        }
             );
         }
         else {
@@ -127,7 +128,7 @@ int main(int argc, char** argv) {
                 emergency_shutdown();
             }
         }
-        await_all_others_done();
+        await_all_actors_done();
         shutdown();
         return 0;
     }
@@ -149,7 +150,7 @@ int main(int argc, char** argv) {
         //      the message (which will fail, because the network connection
         //      was closed *sigh*); long story short: fix it by improve how
         //      'unused' network connections are detected
-        vector<actor_ptr> remotes;
+        vector<actor> remotes;
         if (not nodes_list.empty()) {
             auto nl = split(nodes_list, ',');
             for (auto& n : nl) {
@@ -158,7 +159,7 @@ int main(int argc, char** argv) {
                         try {
                             auto ptr = remote_actor(host, p);
                             remotes.push_back(ptr);
-                            send_as(ctrl, ptr, atom("getWorkers"));
+                            send_as(ctrl, ptr, atom("getWorkers"), ctrl);
                         }
                         catch (std::exception& e) {
                             cerr << "unable to connect to " << host
@@ -190,10 +191,10 @@ int main(int argc, char** argv) {
             }
         }
         if (no_gui) {
-            send(cntr, atom("init"), self);
+            self->send(cntr, atom("init"), self);
             uint32_t received_images = 0;
             uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
-            receive_while(gref(received_images) < gref(total_images)) (
+            self->receive_while(gref(received_images) < gref(total_images)) (
                 on(atom("image"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
                     auto img = QImage::fromData(ba, image_format);
                     std::ostringstream fname;
@@ -211,7 +212,7 @@ int main(int argc, char** argv) {
                 on(atom("done"), arg_match) >> [&](uint32_t num_images) {
                     total_images = num_images;
                 },
-                others() >> [] {
+                others() >> [&] {
                     cerr << "main:unexpected: "
                          << to_string(self->last_dequeued()) << endl;
                 }
@@ -227,13 +228,13 @@ int main(int argc, char** argv) {
             // todo tell widget about other actors?
             window.resize(ini.get_as<int>("fractals", "width"),
                           ini.get_as<int>("fractals", "height"));
-            send_as(nullptr, cntr, atom("init"), main.mainWidget->as_actor(), ctrl);
+            self->send(cntr, atom("init"), main.mainWidget->as_actor(), ctrl);
             window.show();
             app.quitOnLastWindowClosed();
             app.exec();
         }
-        send_as(nullptr, ctrl, atom("quit"));
-        await_all_others_done();
+        self->send(ctrl, atom("quit"));
+        //await_all_actors_done();
         shutdown();
     }
     else if (is_controller && !is_server) { // is controller ui
@@ -247,7 +248,7 @@ int main(int argc, char** argv) {
         auto ctrl_widget = ctrl_ui.controllerWidget;
         ctrl_widget->set_controller(ctrl);
         ctrl_widget->initialize();
-        send_as(ctrl_widget->as_actor(), ctrl, atom("widget"));
+        send_as(ctrl_widget->as_actor(), ctrl, atom("widget"), ctrl_widget->as_actor());
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

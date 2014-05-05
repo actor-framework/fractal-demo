@@ -17,7 +17,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     explicit ControllerWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
 
-    inline void set_controller(const cppa::actor_ptr& ptr) { m_controller = ptr; }
+    inline void set_controller(const cppa::actor& controller_actor) { m_controller = controller_actor; }
     void initialize();
 
  public slots:
@@ -78,7 +78,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     typedef cppa::actor_widget_mixin<QWidget> super;
 
-    cppa::actor_ptr m_controller;
+    cppa::actor m_controller;
 
     QSlider* m_cpu_slider;
     QSlider* m_gpu_slider;

@@ -12,12 +12,23 @@ class counter : public cppa::event_based_actor {
  public:
 
     counter();
-    virtual void init() override;
+    //virtual void init() override;
+
+
+    cppa::behavior make_behavior() override {
+        trap_exit(true);
+        return {
+            cppa::on( cppa::atom("init"), cppa::arg_match) >> [=] (cppa::actor widget, cppa::actor ctrl) {
+                delayed_send(this, std::chrono::milliseconds(m_delay), cppa::atom("tick"));
+                init(widget, ctrl);
+            }
+        };
+    }
 
  private:
 
     bool probe();
-    void init(cppa::actor_ptr widget, cppa::actor_ptr ctrl);
+    void init(cppa::actor widget, cppa::actor ctrl);
 
     std::uint32_t m_next;
     std::uint32_t m_delay; // in msec

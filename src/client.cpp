@@ -26,14 +26,15 @@
 using namespace std;
 using namespace cppa;
 
-any_tuple response_from_image(QImage image, uint32_t image_id) {
+any_tuple response_from_image(const actor& server, QImage image, uint32_t image_id) {
     QByteArray ba;
     QBuffer buf{&ba};
     buf.open(QIODevice::WriteOnly);
     image.save(&buf, image_format);
     buf.close();
-    return make_any_tuple(atom("result"), image_id, std::move(ba));
+    return make_any_tuple(atom("result"), server, image_id, std::move(ba));
 }
+
 
 #ifdef ENABLE_OPENCL
 
@@ -86,11 +87,12 @@ class clbroker : public event_based_actor {
     void init() {
         become (
             on(atom("assign"), arg_match)
-            >> [=](uint32_t width, uint32_t height,
+            >> [=](const actor& last_sender,
+                   uint32_t width, uint32_t height,
                    uint32_t iterations, uint32_t image_id,
                    float_type min_re, float_type max_re,
-                   float_type min_im, float_type max_im) {
-                m_current_server = self->last_sender();
+                   float_type min_im, float_type max_im) last_sender{
+                m_current_server = last_sender;
                 if (   width != clwidth
                     || height != clheight
                     || iterations != cliterations) {
@@ -104,10 +106,10 @@ class clbroker : public event_based_actor {
                 clforward(image_id, min_re, max_re, min_im, max_im);
             },
             on(atom("identity")) >> [=] {
-                return atom("opencl");
+                return make_cow_tuple(atom("opencl"), this);
             },
             others() >> [=] {
-                aout << "Unexpected message: '"
+                aout(this) << "Unexpected message: '"
                      << to_string(self->last_dequeued()) << "'.\n";
             }
         );
@@ -158,34 +160,35 @@ class clbroker : public event_based_actor {
     uint32_t clwidth;
     uint32_t clheight;
     uint32_t cliterations;
-    actor_ptr clworker;
-    actor_ptr m_current_server;
+    actor clworker;
+    actor m_current_server;
     std::vector<QColor> palette;
 
 };
 
 //void clbroker(uint32_t clwidth, uint32_t clheight,
-//              uint32_t cliterations, actor_ptr clworker, palette_ptr palette) {
+//              uint32_t cliterations, actor clworker, palette_ptr palette) {
 //}
 
-actor_ptr spawn_opencl_client(uint32_t device_id) {
+actor spawn_opencl_client(uint32_t device_id) {
     return spawn<clbroker>(device_id);
 }
 
 #else
 
-cppa::actor_ptr spawn_opencl_client(uint32_t) {
+cppa::actor spawn_opencl_client(uint32_t) {
     throw std::logic_error("spawn_opencl_client: compiled wo/ OpenCL");
 }
 
 #endif // ENABLE_OPENCL
 
-void client::init() {
-    become (
+behavior client::make_behavior(){
+    return {
         on(atom("quit")) >> [=] {
             quit();
         },
-        on(atom("assign"), arg_match) >> [=](uint32_t width,
+    on(atom("assign"), arg_match) >> [=](const actor& server,
+                                             uint32_t width,
                                              uint32_t height,
                                              uint32_t iterations,
                                              uint32_t image_id,
@@ -193,10 +196,10 @@ void client::init() {
                                              float_type max_re,
                                              float_type min_im,
                                              float_type max_im) {
-            m_current_server = self->last_sender();
             // was reply_tuple
             return (
                 response_from_image(
+                    server,
                     calculate_fractal(m_palette, width, height, iterations,
                                       min_re, max_re, min_im, max_im),
                     image_id
@@ -204,11 +207,11 @@ void client::init() {
             );
         },
         on(atom("identity")) >> [=] {
-            return atom("normal");
+            return make_cow_tuple(atom("normal"), this);
         },
         others() >> [=] {
-            aout << "Unexpected message: '"
+            aout(this) << "Unexpected message: '"
                  << to_string(last_dequeued()) << "'.\n";
         }
-    );
+    };
 }

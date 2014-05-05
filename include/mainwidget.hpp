@@ -21,7 +21,7 @@ class MainWidget : public cppa::actor_widget_mixin<QWidget> {
 
     explicit MainWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
 
-    inline void set_server(const cppa::actor_ptr& ptr) { m_server = ptr; }
+    inline void set_server(const cppa::actor& server_actor) { m_server = server_actor; }
 
  protected:
 
@@ -42,8 +42,8 @@ class MainWidget : public cppa::actor_widget_mixin<QWidget> {
         return member;
     }
 
-    cppa::actor_ptr m_server;
-    cppa::actor_ptr m_controller;
+    cppa::actor m_server;
+    cppa::actor m_controller;
 
     ImageLabel *m_imagelabel;
 

@@ -14,21 +14,24 @@ using namespace std;
 using namespace cppa;
 
 MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
-    super(parent, f),
-    m_server(nullptr),
-    m_imagelabel(nullptr)
+    super(parent, f)//,
+    //m_server(nullptr),
+    //m_imagelabel(nullptr)
 {
-    set_message_handler (
-        on_arg_match >> [=](const QByteArray& ba) {
-            get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
-        },
-        on(atom("done")) >> [] { },
-        others() >> [=] {
-            cout << "[!!!] mainwidget received unexpected message: '"
-                 << to_string(self->last_dequeued())
-                 << "'." << endl;
-        }
-    );
+    set_message_handler ([=](local_actor* self) -> partial_function {
+        return {
+            on_arg_match >> [=](const QByteArray& ba) {
+                get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
+            },
+            on(atom("done")) >> [] { },
+            others() >> [=] {
+                // Warum geht nicht aout?
+                cerr << "[!!!] mainwidget received unexpected message: '"
+                             << to_string(self->last_dequeued())
+                             << "'." << endl;
+            }
+        };
+    });
 }
 
 void MainWidget::resizeEvent(QResizeEvent *) {

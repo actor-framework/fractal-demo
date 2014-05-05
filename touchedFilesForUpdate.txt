@@ -1,0 +1,40 @@
+Update for libcppa 0.9
+
++ - didn't have to be touched
+* - file touched
+? - not sure if right
++ - pretty sure its right
+
+src files:
+calculate_fractal.cpp 
+client.cpp
+config.cpp
+config_map.cpp
+controller.cpp
+controllerwidget.cpp
+counter.cpp
+files.alex
+fractal_request_stream.cpp
+get_compiler_version.cpp
+imagelabel.cpp
+main.cpp
+mainwidget.cpp
+q_byte_array_info.cpp
+server.cpp
+
+include files:
+calculate_fractal.hpp
+	client.hpp +
+config.hpp o 
+config_map.hpp +
+controller.hpp
+controllerwidget.hpp 
+counter.hpp
+files.alex
+fractal_request.hpp
+fractal_request_stream.hpp
+imagelabel.h
+mainwidget.hpp
+projection.hpp
+q_byte_array_info.hpp
+server.hpp

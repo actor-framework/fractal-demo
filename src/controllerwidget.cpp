@@ -1,6 +1,7 @@
 
 #include <sstream>
 #include <QString>
+#include <utility>
 
 #include "cppa/cppa.hpp"
 
@@ -12,7 +13,7 @@ using namespace cppa;
 
 ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
     super(parent, f),
-    m_controller(nullptr),
+   // m_controller(nullptr),
     m_cpu_slider(nullptr),
     m_gpu_slider(nullptr),
     m_resolution_slider(nullptr),
@@ -25,8 +26,10 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
                   make_pair(1920,1080),
                   make_pair(2560,1440)}
 {
-    set_message_handler (
-        on(atom("max_cpu"), arg_match) >> [=] (size_t max_cpu) {
+    set_message_handler ([=](local_actor* self) -> partial_function {
+
+        return {
+            on(atom("max_cpu"), arg_match) >> [=] (size_t max_cpu) {
             set_cpu_max(max_cpu);
         },
         on(atom("max_gpu"), arg_match) >> [=] (size_t max_gpu) {
@@ -36,15 +39,15 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
 
         },
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
-            aout << "[!!!] master died" << endl;
+            cout << "[!!!] master died" << endl;
             // quit
         },
         others() >> [=] {
-            aout << "[!!!] controller ui received unexpected message: '"
+            cout << "[!!!] controller ui received unexpected message: '"
                  << to_string(self->last_dequeued())
-                 << "'." << endl;
-        }
-    );
+                 << "'." << endl; }
+        };
+      });
     for (auto& p : m_resolutions) {
         m_res_strings.emplace_back(QString::number(p.first)
                                    + "x"
@@ -62,21 +65,21 @@ void ControllerWidget::initialize() {
 
 void ControllerWidget::adjustGPULimit(int newLimit) {
     // aout << "new GPU limit: " << newLimit << endl;
-    if(m_controller != nullptr) {
-        send(m_controller, atom("limit"), atom("opencl"), static_cast<uint32_t>(newLimit));
+    if(m_controller) {
+        send_as(as_actor(), m_controller, atom("limit"), atom("opencl"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustCPULimit(int newLimit) {
     // aout << "new CPU limit: " << newLimit << endl;
-    if(m_controller != nullptr) {
-        send(m_controller, atom("limit"), atom("normal"), static_cast<uint32_t>(newLimit));
+    if(m_controller) {
+        send_as(as_actor(), m_controller, atom("limit"), atom("normal"), static_cast<uint32_t>(newLimit));
     }
 }
 
 void ControllerWidget::adjustResolution(int idx) {
-    if(m_controller != nullptr) {
-        send(m_controller, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
+    if(m_controller) {
+        send_as(as_actor(), m_controller, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
         res_current()->setText(m_res_strings[idx]);
     }
 }

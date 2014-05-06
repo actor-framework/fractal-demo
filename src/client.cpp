@@ -26,13 +26,13 @@
 using namespace std;
 using namespace cppa;
 
-any_tuple response_from_image(const actor& server, QImage image, uint32_t image_id) {
+any_tuple response_from_image(const actor& worker, QImage image, uint32_t image_id) {
     QByteArray ba;
     QBuffer buf{&ba};
     buf.open(QIODevice::WriteOnly);
     image.save(&buf, image_format);
     buf.close();
-    return make_any_tuple(atom("result"), server, image_id, std::move(ba));
+    return make_any_tuple(atom("result"), worker, image_id, std::move(ba));
 }
 
 
@@ -187,19 +187,18 @@ behavior client::make_behavior(){
         on(atom("quit")) >> [=] {
             quit();
         },
-    on(atom("assign"), arg_match) >> [=](const actor& server,
-                                             uint32_t width,
-                                             uint32_t height,
-                                             uint32_t iterations,
-                                             uint32_t image_id,
-                                             float_type min_re,
-                                             float_type max_re,
-                                             float_type min_im,
-                                             float_type max_im) {
+    on(atom("assign"), arg_match) >> [=](uint32_t width,
+                                         uint32_t height,
+                                         uint32_t iterations,
+                                         uint32_t image_id,
+                                         float_type min_re,
+                                         float_type max_re,
+                                         float_type min_im,
+                                         float_type max_im) {
             // was reply_tuple
             return (
                 response_from_image(
-                    server,
+                    this,
                     calculate_fractal(m_palette, width, height, iterations,
                                       min_re, max_re, min_im, max_im),
                     image_id

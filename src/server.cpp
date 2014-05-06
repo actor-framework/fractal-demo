@@ -33,7 +33,6 @@ void server::send_next_job(const actor& worker) {
     auto next_id = m_next_id++;
     send(worker,
          atom("assign"),
-         this,
          width(fr),
          height(fr),
          m_iterations,
@@ -68,17 +67,26 @@ behavior server::make_behavior() {
                 m_stream.loop_stack();
             }
 
-            auto w = find_if(m_workers.begin(), m_workers.end(), [&](const actor& element) {
-                return element == worker;
-            });
+            auto w = m_workers.find(worker);
             if (w != m_workers.end()) {
                 send_next_job(worker);
+                aout(this) << "[server] worker found" << endl;
             }
-            auto j = find_if(m_jobs.begin(), m_jobs.end(), [&](const pair<actor, u_int32_t>& element) {
-                return element.first == worker;
-            });
+            else {
+                aout(this) << "[server] worker not found" << endl;
+                aout(this) << to_string(*m_workers.begin())
+                           << " != "
+                           << to_string(worker)
+                           << " (should be equal)"
+                           << endl;
+                aout(this) << "last_sender: "
+                           << to_string(last_sender())
+                           << endl;
+            }
+            auto j = m_jobs.find(worker);
             if (j != m_jobs.end()) {
                 m_jobs.erase(j);
+                aout(this) << "[server] job found" << endl;
             }
         },
         on(atom("resize"), arg_match) >> [=](uint32_t new_width,

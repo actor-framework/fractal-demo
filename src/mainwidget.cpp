@@ -14,9 +14,9 @@ using namespace std;
 using namespace cppa;
 
 MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
-    super(parent, f)//,
+    super(parent, f),//,
     //m_server(nullptr),
-    //m_imagelabel(nullptr)
+    m_imagelabel(nullptr)
 {
     set_message_handler ([=](local_actor* self) -> partial_function {
         return {

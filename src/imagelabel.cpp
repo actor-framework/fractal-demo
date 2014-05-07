@@ -20,5 +20,8 @@ void ImageLabel::setPixmapFromByteArray(QByteArray ba) {
     if (!pxm.convertFromImage(image)) {
         // freak out
     }
-    this->setPixmap(pxm);
+
+    setPixmap(pxm);
 }
+
+

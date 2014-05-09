@@ -30,9 +30,10 @@ void server::send_next_job(const actor& worker) {
     if (!worker || not m_stream.next()) return;
     auto& fr = m_stream.request();
 
+
     auto next_id = m_next_id++;
     send(worker,
-         atom("assign"),
+         m_fractal_type_atom,
          width(fr),
          height(fr),
          m_iterations,
@@ -122,7 +123,7 @@ struct ini_helper {
     }
 };
 
-server::server(config_map& ini, cppa::actor counter)
+server::server(config_map& ini, cppa::actor counter, cppa::atom_value fractal_type_atom)
 : m_next_id(0)
 , m_counter(counter) {
     ini_helper rd{ini};
@@ -135,6 +136,7 @@ server::server(config_map& ini, cppa::actor counter)
                   rd("min_imag",   default_min_imag),
                   rd("max_imag",   default_max_imag),
                   rd("zoom",       default_zoom));
+    m_fractal_type_atom = fractal_type_atom;
     m_interval   = rd("interval",   default_interval);
     m_queuesize  = rd("queuesize",  default_queuesize);
     m_iterations = rd("iterations", default_iterations);

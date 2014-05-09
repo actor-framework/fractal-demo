@@ -23,7 +23,7 @@ class server : public cppa::event_based_actor {
 
  public:
 
-    server(config_map& config, cppa::actor counter);
+    server(config_map& config, cppa::actor counter, cppa::atom_value fractal_type_atom);
 
     cppa::behavior make_behavior() override;
 
@@ -35,6 +35,7 @@ class server : public cppa::event_based_actor {
     //std::uint32_t m_assign_id;
     std::uint32_t m_iterations;
 
+    cppa::atom_value m_fractal_type_atom;
     cppa::actor m_counter;
 
     std::set<cppa::actor> m_workers;

@@ -106,6 +106,38 @@ constexpr const char* kernel_source = R"__(
                 cnt ++;
             } while (cnt < iterations && cond <= 4.0f);
             output[x+y*width] = cnt;
+      }
+     void burnship(__global float* config,
+                                  __global int* output)
+         {
+             unsigned iterations = config[0];
+             unsigned width = config[1];
+             unsigned height = config[2];
+
+             float min_re = config[3];
+             float max_re = config[4];
+             float min_im = config[5];
+             float max_im = config[6];
+
+             float re_factor = (max_re-min_re)/(width-1);
+             float im_factor = (max_im-min_im)/(height-1);
+
+             unsigned x = get_global_id(0);
+             unsigned y = get_global_id(1);
+             float z_re = min_re + x*re_factor;
+             float z_im = max_im - y*im_factor;
+             float const_re = z_re;
+             float const_im = z_im;
+             unsigned cnt = 0;
+             float cond = 0;
+             do {
+                 auto tmp_re = z_re;
+                 auto tmp_im = z_im;
+                 z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) - const_re;
+                 z_im = ( 2 * abs(tmp_re * tmp_im) ) - const_im;
+                 cond = (abs(tmp_re) + abs(tmp_im)) * (abs(tmp_re) + abs(tmp_im));
+             } while (cnt < iterations && cond <= 4.0f);
+             output[x+y*width] = cnt;
         }
     )__";
 
@@ -119,7 +151,7 @@ class clbroker : public event_based_actor {
 
     void init() {
         become (
-            on(atom("mandel"), arg_match)
+            on(atom("tricorn"), arg_match)
             >> [=](const actor& last_sender,
                    uint32_t width, uint32_t height,
                    uint32_t iterations, uint32_t image_id,
@@ -150,6 +182,25 @@ class clbroker : public event_based_actor {
                     || iterations != cliterations) {
                     calculate_palette(palette, iterations);
                     clworker = spawn_cl<int*(float*)>(clprog, "mandel",
+                                                      {width, height});
+                    clwidth = width;
+                    clheight = height;
+                    cliterations = iterations;
+                }
+                clforward(image_id, min_re, max_re, min_im, max_im);
+            },
+            on(atom("brunship"), arg_match)
+            >> [=](const actor& last_sender,
+                   uint32_t width, uint32_t height,
+                   uint32_t iterations, uint32_t image_id,
+                   float_type min_re, float_type max_re,
+                   float_type min_im, float_type max_im) last_sender{
+                m_current_server = last_sender;
+                if (   width != clwidth
+                    || height != clheight
+                    || iterations != cliterations) {
+                    calculate_palette(palette, iterations);
+                    clworker = spawn_cl<int*(float*)>(clprog, "burnship",
                                                       {width, height});
                     clwidth = width;
                     clheight = height;
@@ -234,7 +285,6 @@ cppa::actor spawn_opencl_client(uint32_t) {
 
 #endif // ENABLE_OPENCL
 
-//atom("mandel"), atom("tricorn")
 behavior client::make_behavior(){
     return {
         on(atom("quit")) >> [=] {
@@ -276,7 +326,24 @@ behavior client::make_behavior(){
                 )
             );
         },
-
+        on(atom("burnship"), arg_match) >> [=](uint32_t width,
+                                         uint32_t height,
+                                         uint32_t iterations,
+                                         uint32_t image_id,
+                                         float_type min_re,
+                                         float_type max_re,
+                                         float_type min_im,
+                                         float_type max_im) {
+            // was reply_tuple
+            return (
+                response_from_image(
+                    this,
+                    calculate_burning_ship(m_palette, width, height, iterations,
+                                            min_re, max_re, min_im, max_im),
+                    image_id
+                )
+            );
+        },
         on(atom("identity")) >> [=] {
             return make_cow_tuple(atom("normal"), this);
         },

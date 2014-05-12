@@ -25,6 +25,7 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
                   make_pair(1680,945),
                   make_pair(1920,1080),
                   make_pair(2560,1440)}
+
 {
     set_message_handler ([=](local_actor* self) -> partial_function {
 
@@ -41,6 +42,12 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
         on(atom("EXIT"), arg_match) >> [=](std::uint32_t) {
             cout << "[!!!] master died" << endl;
             // quit
+        },
+        on(atom("addfrac"), arg_match) >> [&] (const map<string, atom_value>& fractal_types) {
+                m_valid_fractal = fractal_types;
+                for(auto& fractal : fractal_types) {
+                    drop_down_fractal_type()->addItem(QString(fractal.first.c_str()));
+                }
         },
         others() >> [=] {
             cout << "[!!!] controller ui received unexpected message: '"
@@ -81,5 +88,12 @@ void ControllerWidget::adjustResolution(int idx) {
     if(m_controller) {
         send_as(as_actor(), m_controller, atom("resize"), m_resolutions[idx].first, m_resolutions[idx].second);
         res_current()->setText(m_res_strings[idx]);
+    }
+}
+
+void ControllerWidget::adjustFractals(const QString& fractal) {
+    if(m_controller) {
+        cout << "Changed fractal to: " << fractal.toStdString() << endl;
+        send_as(as_actor(), m_controller, atom("changefrac"), m_valid_fractal[fractal.toStdString()]);
     }
 }

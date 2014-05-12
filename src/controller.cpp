@@ -66,7 +66,9 @@ behavior controller::make_behavior() {
         on(atom("fps"), arg_match) >> [=] (uint32_t) {
             forward_to(m_widget);
         },
-
+        on(atom("changefrac"), arg_match) >> [=] (atom_value frac_option) {
+            send(m_server, atom("changefrac"), frac_option);
+        },
         on(atom("EXIT"), arg_match) >> [=](const exit_msg& msg) {
             auto dead_addr = msg.source;
 

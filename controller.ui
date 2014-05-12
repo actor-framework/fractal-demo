@@ -264,6 +264,9 @@
       </property>
      </spacer>
     </item>
+    <item>
+     <widget class="QComboBox" name="drop_down_fractal_type"/>
+    </item>
    </layout>
   </widget>
  </widget>
@@ -277,6 +280,7 @@
     <slot>adjustGPULimit(int)</slot>
     <slot>adjustCPULimit(int)</slot>
     <slot>adjustResolution(int)</slot>
+    <slot>adjustFractals(QString)</slot>
    </slots>
   </customwidget>
  </customwidgets>
@@ -359,6 +363,22 @@
     <hint type="destinationlabel">
      <x>725</x>
      <y>236</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>drop_down_fractal_type</sender>
+   <signal>currentIndexChanged(QString)</signal>
+   <receiver>controllerWidget</receiver>
+   <slot>adjustFractals(QString)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>544</x>
+     <y>608</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>544</x>
+     <y>317</y>
     </hint>
    </hints>
   </connection>

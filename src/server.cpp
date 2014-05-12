@@ -58,6 +58,9 @@ behavior server::make_behavior() {
             }
             m_workers.swap(workers);
         },
+        on(atom("changefrac"), arg_match) >> [&] (atom_value new_frac_option) {
+            m_fractal_type_atom = new_frac_option;
+        },
         on(atom("quit")) >> [=] {
             quit();
         },

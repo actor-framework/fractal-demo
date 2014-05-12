@@ -5,6 +5,9 @@
 #include <QLabel>
 #include <QWidget>
 #include <QSlider>
+#include <QComboBox>
+//#include <string>
+//#include <OWidgetAction>
 
 #include "cppa/cppa.hpp"
 #include "cppa/qtsupport/actor_widget_mixin.hpp"
@@ -25,6 +28,8 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     void adjustGPULimit(int newLimit);
     void adjustCPULimit(int newLimit);
     void adjustResolution(int idx);
+    void adjustFractals(const QString& valid_fractal);
+
 
  private:
 
@@ -49,6 +54,10 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     inline QSlider* resolution_slider() {
         return get(m_resolution_slider, "res_slider");
+    }
+
+    inline QComboBox* drop_down_fractal_type(){
+        return get(m_drop_down_fractal_type, "drop_down_fractal_type");
     }
 
     inline QLabel* res_current() {
@@ -87,8 +96,11 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     QLabel* m_res_current;
     QLabel* m_time_current;
 
+    QComboBox* m_drop_down_fractal_type;
+
     std::vector<QString> m_res_strings;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;
+    std::map<std::string, cppa::atom_value> m_valid_fractal;
 };
 
 #endif // CONTROLLERWIDGET_HPP

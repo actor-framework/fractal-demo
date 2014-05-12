@@ -36,6 +36,7 @@ int main(int argc, char** argv) {
     announce<vector<int>>();
     announce<vector<float>>();
     announce<set<actor>>();
+    announce<map<string, atom_value>>();
     announce(typeid(QByteArray), create_unique<q_byte_array_info>());
     // sent from server to client
     announce_tuple<atom_value, uint32_t, uint32_t, uint32_t, uint32_t,
@@ -54,8 +55,9 @@ int main(int argc, char** argv) {
     uint32_t opencl_device_id = 0;
     std::string nodes_list;
 
-    const map<string, atom_value> valid_fractal = {{"mandelbrot", atom("mandel")}, {"tricorn", atom("tricorn")}};
-    //const map<string, atom_value> valid_fractal = {make_pair("mandelbrot", atom("mandel")), make_pair("tricorn", atom("tricorn"))};
+    const map<string, atom_value> valid_fractal = {{"mandelbrot",   atom("mandel")},
+                                                   {"tricorn",      atom("tricorn")}};//,
+                                                   //{"burnship",     atom("burnship")}};
     std::string fractal = "mandelbrot";
     options_description desc;
     bool args_valid = match_stream<string>(argv + 1, argv + argc) (
@@ -70,7 +72,7 @@ int main(int argc, char** argv) {
         on_opt0('o', "opencl",  &desc, "enable opencl",               "client") >> set_flag(with_opencl),
         on_opt0('u', "publish", &desc, "don't connect to server; only publish worker(s) at given port", "client") >> set_flag(publish_workers),
         // server options
-        //on_opt1('f', "fractal", &desc, "choose fractaltype (default: mandelbrot)", "server") >> rd_arg(fractal),
+        on_opt1('f', "fractal", &desc, "choose fractaltype (default: mandelbrot)", "server") >> rd_arg(fractal),
         on_opt1('n', "nodes",   &desc, "use given list (host:port notation) as workes", "server") >> rd_arg(nodes_list),
         on_opt0('g', "no-gui",  &desc, "save images to local directory", "server") >> set_flag(no_gui),
         // controller
@@ -149,7 +151,6 @@ int main(int argc, char** argv) {
                 cerr << valid_fractal_pair.first << " ";
             }
             cerr << endl;
-
             print_desc_and_exit(&desc)();
         }
 
@@ -274,6 +275,7 @@ int main(int argc, char** argv) {
         ctrl_widget->set_controller(ctrl);
         ctrl_widget->initialize();
         send_as(ctrl_widget->as_actor(), ctrl, atom("widget"), ctrl_widget->as_actor());
+        self->send(ctrl_widget->as_actor(), atom("addfrac"), valid_fractal);
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

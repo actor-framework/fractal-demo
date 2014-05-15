@@ -56,8 +56,8 @@ int main(int argc, char** argv) {
     std::string nodes_list;
 
     const map<string, atom_value> valid_fractal = {{"mandelbrot",   atom("mandel")},
-                                                   {"tricorn",      atom("tricorn")}};//,
-                                                   //{"burnship",     atom("burnship")}};
+                                                   {"tricorn",      atom("tricorn")},
+                                                   {"burnship",     atom("burnship")}};
     std::string fractal = "mandelbrot";
     options_description desc;
     bool args_valid = match_stream<string>(argv + 1, argv + argc) (
@@ -275,7 +275,7 @@ int main(int argc, char** argv) {
         ctrl_widget->set_controller(ctrl);
         ctrl_widget->initialize();
         send_as(ctrl_widget->as_actor(), ctrl, atom("widget"), ctrl_widget->as_actor());
-        self->send(ctrl_widget->as_actor(), atom("addfrac"), valid_fractal);
+        self->send(ctrl_widget->as_actor(), atom("fraclist"), valid_fractal);
         window.show();
         app.quitOnLastWindowClosed();
         app.exec();

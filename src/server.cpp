@@ -59,16 +59,40 @@ behavior server::make_behavior() {
             m_workers.swap(workers);
         },
         on(atom("changefrac"), arg_match) >> [&] (atom_value new_frac_option) {
-            m_fractal_type_atom = new_frac_option;
+            //if(m_fractal_type_atom != new_frac_option) {
+                m_fractal_type_atom = new_frac_option;
+
+                // load correct stack for changed fractaltype
+                if(m_fractal_type_atom  == atom("mandel")) {
+                    m_stream.loop_stack_mandelbrot();
+                } else if(m_fractal_type_atom == atom("burnship")) {
+                    m_stream.loop_stack_burning_ship();
+                } else if(m_fractal_type_atom == atom("tricorn")) {
+                    // tricorn needs his own stream
+                    m_stream.loop_stack_mandelbrot();
+                } else {
+                    aout(this) << "[server] couldn't get " <<
+                                  "coordination for changed fractal." << endl;
+                }
+         //   }
         },
         on(atom("quit")) >> [=] {
             quit();
         },
         on(atom("result"), arg_match) >> [=](const actor& worker, uint32_t id, const QByteArray& ba) {
             send(m_counter, atom("image"), id, ba);
-            if (m_stream.at_end()) {
-                // provides endless stream
-                m_stream.loop_stack();
+
+            // provides endless stream
+            if (m_stream.at_end() && m_fractal_type_atom == atom("mandel")) {
+                m_stream.loop_stack_mandelbrot();
+            } else if(m_stream.at_end() && m_fractal_type_atom == atom("burnship")) {
+                m_stream.loop_stack_burning_ship();
+            } else if(m_stream.at_end() && m_fractal_type_atom == atom("tricorn")) {
+                //tricorn needs his own stream
+                m_stream.loop_stack_mandelbrot();
+            } else if(m_stream.at_end()){
+                aout(this) << "[server] Reached streamend and didn't found new " <<
+                              "stream.";
             }
 
             auto w = m_workers.find(worker);

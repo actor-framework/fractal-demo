@@ -1,13 +1,12 @@
 #ifndef CONTROLLERWIDGET_HPP
 #define CONTROLLERWIDGET_HPP
 
+#include <map>
 #include <vector>
 #include <QLabel>
 #include <QWidget>
 #include <QSlider>
 #include <QComboBox>
-//#include <string>
-//#include <OWidgetAction>
 
 #include "cppa/cppa.hpp"
 #include "cppa/qtsupport/actor_widget_mixin.hpp"
@@ -82,6 +81,14 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     inline void set_fps(uint32_t time) {
         time_current()->setNum(static_cast<int>(time));
+    }
+
+    inline void set_fractal_types(const std::map<std::string,cppa::atom_value>& fractal_types) {
+        m_valid_fractal = fractal_types;
+        while(drop_down_fractal_type() == nullptr); // wait for the UI
+        for(auto& fractal : fractal_types) {
+            drop_down_fractal_type()->addItem(QString(fractal.first.c_str()));
+        }
     }
 
 

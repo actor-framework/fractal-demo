@@ -220,12 +220,38 @@ void fractal_request_stream::add_chain(std::vector<std::pair<float_type,float_ty
     }
 }
 
-void fractal_request_stream::loop_stack() {
+// Burning Ship
+void fractal_request_stream::loop_stack_burning_ship() {
     std::vector<std::pair<float_type,float_type>> chain;
     // coords are visited top down
     /* ######################### */
-    chain.emplace_back(0.28692299709,-0.01218247138); // geode
-    chain.emplace_back(0.013438870532012129028364, 0.655614218769465062251320);
+    chain.emplace_back(1.941, 0.004);       // tiny ship
+    chain.emplace_back(1.861, 0.005);       // other tiny
+    chain.emplace_back(1.755, 0.0270009);   // inner ship
+    chain.emplace_back(1.625, 0.034);       // other ship
+    /* ######################### */
+    chain.emplace_back(1.941, 0.004);       // tiny ship
+    chain.emplace_back(1.861, 0.005);       // other tiny
+    chain.emplace_back(1.755, 0.0270009);   // inner ship
+    chain.emplace_back(1.625, 0.034);       // other ship
+    /* ######################### */
+    chain.emplace_back(1.941, 0.004);       // tiny ship
+    chain.emplace_back(1.861, 0.005);       // other tiny
+    chain.emplace_back(1.755, 0.0270009);   // inner ship
+    chain.emplace_back(1.625, 0.034);       // other ship
+    /* ######################### */
+
+    add_chain(chain, 80);
+    //add_chain(chain, 100);
+    m_operations.emplace_back(reset_op, do_once);
+}
+
+
+// Mandelbrot
+void fractal_request_stream::loop_stack_mandelbrot() {
+    std::vector<std::pair<float_type,float_type>> chain;
+    // coords are visited top down
+    chain.emplace_back(0.28692299709,-0.01218247138);  // geode
     chain.emplace_back(0.001643721971153,          0.822467633298876); // buzzsaw
     chain.emplace_back(-0.089,0.655);
     chain.emplace_back(-0.7458555,                 0.10550365);
@@ -248,7 +274,8 @@ void fractal_request_stream::loop_stack() {
     chain.emplace_back(-0.089,0.655);
     chain.emplace_back(-0.7458555,                 0.10550365);
     /* ######################### */
-    add_chain(chain, 100);
+    add_chain(chain, 80);
+    //add_chain(chain, 100);
     m_operations.emplace_back(reset_op, do_once);
 
     /* nowhereland (not enough iterations or coloring method sucks)*/
@@ -263,10 +290,11 @@ void fractal_request_stream::loop_stack() {
     // chain.emplace_back(-1.74975914513271613, -0.00000000368338015); // microbug
     // chain.emplace_back(-1.74975914513272790, -0.00000000368338638); // nucleus
     // chain.emplace_back(-0.13856524454488, -0.64935990748190);
-    
+
     /* not interesting */
     // chain.emplace_back(-1.6735,-0.0003318); // x-wing
 }
+
 
 void fractal_request_stream::resize(std::uint32_t new_width, std::uint32_t new_height) {
     float_type nw = new_width;
@@ -293,7 +321,7 @@ void fractal_request_stream::init(std::uint32_t width,
     m_min_im = min_im;
     m_max_im = max_im;
     m_zoom   = zoom;
-    loop_stack();
+    loop_stack_mandelbrot();
 }
 
 bool fractal_request_stream::next() {

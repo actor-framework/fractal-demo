@@ -40,7 +40,8 @@ class fractal_request_stream {
 
     inline bool at_end() const { return m_operations.empty(); }
 
-    void loop_stack();
+    void loop_stack_mandelbrot();
+    void loop_stack_burning_ship();
 
  private:
 

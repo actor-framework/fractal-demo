@@ -265,6 +265,9 @@
      </spacer>
     </item>
     <item>
+     <widget class="QComboBox" name="drop_down_color"/>
+    </item>
+    <item>
      <widget class="QComboBox" name="drop_down_fractal_type"/>
     </item>
    </layout>

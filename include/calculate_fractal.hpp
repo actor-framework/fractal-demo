@@ -15,8 +15,21 @@ inline void calculate_palette(std::vector<QColor>& storage, uint32_t iterations)
     storage.reserve(iterations + 1);
     for (uint32_t i = 0; i < iterations; ++i) {
         QColor tmp;
-        // tmp.setHsv(((135.0 / iterations) * i) + 180.0, 255, 200);
-        tmp.setHsv(((180.0 / iterations) * i) + 180.0, 255, 200);
+        int color;
+
+        //tmp.setHsv(((135.0 / iterations) * i) + 180.0, 255, 200);
+        //tmp.setHsv(((180.0 / iterations) * i) + 180.0, 255, 200);
+
+        //color = ((180.0 / iterations) * i);                       // rainbow
+        //color = ((180.0 / iterations) * ((i + 1) * (i + 1)));   // rainbow2
+        //color = ((180.0 / iterations) * (i + 1));               // sexy
+        //tmp.setHsv((color % 200), color % 100, 200);
+        //tmp.setHsv(color , 255, 200);
+        //tmp.setHsv(color % 360, 255, 200);
+
+        color = ((iterations + 3000) / ((i + 1)*(i + 1)));
+        tmp.setHsv(color, 255, 200);
+
         storage.push_back(tmp);
     }
     storage.push_back(QColor(qRgb(0,0,0)));
@@ -120,7 +133,7 @@ QImage calculate_burning_ship(std::vector<QColor>& palette,
                 auto tmp_re = z_re;
                 auto tmp_im = z_im;
                 z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) - const_re;
-                z_im = ( 2 * abs(tmp_re * tmp_im) ) - const_im;
+                z_im = ( 2 * fabs(tmp_re * tmp_im) ) - const_im;
                 cond = (abs(tmp_re) + abs(tmp_im)) * (abs(tmp_re) + abs(tmp_im));
                 //cond = z_re*z_re + z_im*z_im;
                 ++iteration;

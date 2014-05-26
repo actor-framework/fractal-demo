@@ -298,12 +298,18 @@ behavior client::make_behavior(){
                                          float_type max_re,
                                          float_type min_im,
                                          float_type max_im) {
+            bool frac_changed;
+            if(!(m_current_fractal_type == atom("mandel"))) {
+                m_current_fractal_type  = atom("mandel");
+                frac_changed = true;
+            }
+
             // was reply_tuple
             return (
                 response_from_image(
                     this,
                     calculate_mandelbrot(m_palette, width, height, iterations,
-                                            min_re, max_re, min_im, max_im),
+                                            min_re, max_re, min_im, max_im, frac_changed),
                     image_id
                 )
             );
@@ -316,12 +322,18 @@ behavior client::make_behavior(){
                                          float_type max_re,
                                          float_type min_im,
                                          float_type max_im) {
+            bool frac_changed;
+            if(!(m_current_fractal_type == atom("tricorn"))) {
+                m_current_fractal_type  = atom("tricorn");
+                frac_changed = true;
+            }
+
             // was reply_tuple
             return (
                 response_from_image(
                     this,
                     calculate_tricorn(m_palette, width, height, iterations,
-                                            min_re, max_re, min_im, max_im),
+                                            min_re, max_re, min_im, max_im, frac_changed),
                     image_id
                 )
             );
@@ -334,12 +346,18 @@ behavior client::make_behavior(){
                                          float_type max_re,
                                          float_type min_im,
                                          float_type max_im) {
+            bool frac_changed;
+            if(!(m_current_fractal_type == atom("burnship"))) {
+                m_current_fractal_type  = atom("burnship");
+                frac_changed = true;
+            }
+
             // was reply_tuple
             return (
                 response_from_image(
                     this,
                     calculate_burning_ship(m_palette, width, height, iterations,
-                                            min_re, max_re, min_im, max_im),
+                                            min_re, max_re, min_im, max_im, frac_changed),
                     image_id
                 )
             );

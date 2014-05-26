@@ -9,26 +9,27 @@
 
 #include <iostream>
 
-inline void calculate_palette(std::vector<QColor>& storage, uint32_t iterations) {
+inline void calculate_palette_burnship(std::vector<QColor>& storage, uint32_t iterations) {
     // generating new colors
     storage.clear();
     storage.reserve(iterations + 1);
     for (uint32_t i = 0; i < iterations; ++i) {
         QColor tmp;
-        int color;
-
-        //tmp.setHsv(((135.0 / iterations) * i) + 180.0, 255, 200);
-        //tmp.setHsv(((180.0 / iterations) * i) + 180.0, 255, 200);
-
-        //color = ((180.0 / iterations) * i);                       // rainbow
-        //color = ((180.0 / iterations) * ((i + 1) * (i + 1)));   // rainbow2
-        //color = ((180.0 / iterations) * (i + 1));               // sexy
-        //tmp.setHsv((color % 200), color % 100, 200);
-        //tmp.setHsv(color , 255, 200);
-        //tmp.setHsv(color % 360, 255, 200);
-
-        color = ((iterations + 3000) / ((i + 1)*(i + 1)));
+        int color = ((iterations + 3000) / ((i + 1)*(i + 1)));
         tmp.setHsv(color, 255, 200);
+
+        storage.push_back(tmp);
+    }
+    storage.push_back(QColor(qRgb(0,0,0)));
+}
+
+inline void calculate_palette_mandelbrot(std::vector<QColor>& storage, uint32_t iterations) {
+    // generating new colors
+    storage.clear();
+    storage.reserve(iterations + 1);
+    for (uint32_t i = 0; i < iterations; ++i) {
+        QColor tmp;
+        tmp.setHsv(((180.0 / iterations) * i) + 180.0, 255, 200);
 
         storage.push_back(tmp);
     }
@@ -40,8 +41,8 @@ template<typename FloatType>
 QImage calculate_tricorn(std::vector<QColor>& palette,
                          uint32_t width, uint32_t height, uint32_t iterations,
                          FloatType min_re, FloatType max_re,
-                         FloatType min_im, FloatType max_im) {
-    if (palette.size() != (iterations + 1)) calculate_palette(palette, iterations);
+                         FloatType min_im, FloatType max_im, bool fracs_changed) {
+    if ((palette.size() != (iterations + 1)) || fracs_changed) calculate_palette_mandelbrot(palette, iterations);
     auto re_factor = (max_re - min_re) / (width - 1);
     auto im_factor = (max_im - min_im) / (height - 1);
     QImage image{static_cast<int>(width), static_cast<int>(height), QImage::Format_RGB32};
@@ -78,8 +79,8 @@ template<typename FloatType>
 QImage calculate_mandelbrot(std::vector<QColor>& palette,
                          uint32_t width, uint32_t height, uint32_t iterations,
                          FloatType min_re, FloatType max_re,
-                         FloatType min_im, FloatType max_im) {
-    if (palette.size() != (iterations + 1)) calculate_palette(palette, iterations);
+                         FloatType min_im, FloatType max_im, bool fracs_changed) {
+    if ((palette.size() != (iterations + 1)) || fracs_changed) calculate_palette_mandelbrot(palette, iterations);
     auto re_factor = (max_re - min_re) / (width - 1);
     auto im_factor = (max_im - min_im) / (height - 1);
     QImage image{static_cast<int>(width), static_cast<int>(height), QImage::Format_RGB32};
@@ -116,8 +117,8 @@ template<typename FloatType>
 QImage calculate_burning_ship(std::vector<QColor>& palette,
                          uint32_t width, uint32_t height, uint32_t iterations,
                          FloatType min_re, FloatType max_re,
-                         FloatType min_im, FloatType max_im) {
-    if (palette.size() != (iterations + 1)) calculate_palette(palette, iterations);
+                         FloatType min_im, FloatType max_im, bool fracs_changed) {
+    if ((palette.size() != (iterations + 1)) || fracs_changed) calculate_palette_burnship(palette, iterations);
     auto re_factor = (max_re - min_re) / (width - 1);
     auto im_factor = (max_im - min_im) / (height - 1);
     QImage image{static_cast<int>(width), static_cast<int>(height), QImage::Format_RGB32};

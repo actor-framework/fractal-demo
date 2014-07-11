@@ -7,12 +7,12 @@ Screenshots
 -----------
 
 __Mandelbrot__
-![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/update/screenshots/1-mandelbrot.png "Mandelbrot set")
-![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/update/screenshots/2-mandelbrot.png "Mandelbrot set")
+![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/master/screenshots/1-mandelbrot.png "Mandelbrot set")
+![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/master/screenshots/2-mandelbrot.png "Mandelbrot set")
 
 __Burning Ship__
-![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/update/screenshots/3-burnship.png "Burning ship")
-![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/update/screenshots/4-burnship.png "Burning ship")
+![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/master/screenshots/3-burnship.png "Burning ship")
+![ScreenShot](https://raw.github.com/josephnoir/fractal-cppa/master/screenshots/4-burnship.png "Burning ship")
 
 Dependencies
 ------------

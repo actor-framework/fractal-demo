@@ -5,21 +5,19 @@
 #include <vector>
 #include <chrono>
 
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
-class counter : public cppa::event_based_actor {
+class counter : public caf::event_based_actor {
 
  public:
 
     counter();
-    //virtual void init() override;
 
-
-    cppa::behavior make_behavior() override {
+    caf::behavior make_behavior() override {
         trap_exit(true);
         return {
-            cppa::on( cppa::atom("init"), cppa::arg_match) >> [=] (cppa::actor widget, cppa::actor ctrl) {
-                delayed_send(this, std::chrono::milliseconds(m_delay), cppa::atom("tick"));
+            caf::on(caf::atom("init"), caf::arg_match) >> [=] (caf::actor widget, caf::actor ctrl) {
+                delayed_send(this, std::chrono::milliseconds(m_delay), caf::atom("tick"));
                 init(widget, ctrl);
             }
         };
@@ -28,7 +26,7 @@ class counter : public cppa::event_based_actor {
  private:
 
     bool probe();
-    void init(cppa::actor widget, cppa::actor ctrl);
+    void init(caf::actor widget, caf::actor ctrl);
 
     std::uint32_t m_next;
     std::uint32_t m_delay; // in msec
@@ -44,3 +42,4 @@ class counter : public cppa::event_based_actor {
 };
 
 #endif // COUNTER_HPP
+

@@ -64,3 +64,4 @@ class fractal_request_stream {
 };
 
 #endif // FRACTAL_REQUEST_STREAM_HPP
+

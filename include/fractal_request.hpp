@@ -43,3 +43,4 @@ auto max_im(R& req) -> decltype(std::get<5>(req)) {
     return std::get<5>(req);
 }
 #endif // FRACTAL_REQUEST_HPP
+

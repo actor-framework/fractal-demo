@@ -8,10 +8,10 @@
 #include <QSlider>
 #include <QComboBox>
 
-#include "cppa/cppa.hpp"
-#include "cppa/qtsupport/actor_widget_mixin.hpp"
+#include "caf/all.hpp"
+#include "caf/mixin/actor_widget.hpp"
 
-class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
+class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
 
     Q_OBJECT
 
@@ -19,7 +19,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     explicit ControllerWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
 
-    inline void set_controller(const cppa::actor& controller_actor) { m_controller = controller_actor; }
+    inline void set_controller(const caf::actor& controller_actor) { m_controller = controller_actor; }
     void initialize();
 
  public slots:
@@ -83,7 +83,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
         time_current()->setNum(static_cast<int>(time));
     }
 
-    inline void set_fractal_types(const std::map<std::string,cppa::atom_value>& fractal_types) {
+    inline void set_fractal_types(const std::map<std::string,caf::atom_value>& fractal_types) {
         m_valid_fractal = fractal_types;
         while(drop_down_fractal_type() == nullptr); // wait for the UI
         for(auto& fractal : fractal_types) {
@@ -92,9 +92,9 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     }
 
 
-    typedef cppa::actor_widget_mixin<QWidget> super;
+    typedef caf::mixin::actor_widget<QWidget> super;
 
-    cppa::actor m_controller;
+    caf::actor m_controller;
 
     QSlider* m_cpu_slider;
     QSlider* m_gpu_slider;
@@ -107,7 +107,7 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
 
     std::vector<QString> m_res_strings;
     std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;
-    std::map<std::string, cppa::atom_value> m_valid_fractal;
+    std::map<std::string, caf::atom_value> m_valid_fractal;
 };
 
 #endif // CONTROLLERWIDGET_HPP

@@ -41,7 +41,6 @@ else (CAF_LIBRARY AND CAF_INCLUDE)
 
   find_library(CAF_LIBRARY
     NAMES
-      libcaf_io.so
       libcaf_core.so
     PATHS
       /usr/lib
@@ -62,11 +61,55 @@ else (CAF_LIBRARY AND CAF_INCLUDE)
       ../../libcaf/build/lib
       ../../../libcaf/build/lib)
 
-  if (CAF_LIBRARY)
+  find_library(CAF_LIBRARY_IO
+    NAMES
+      libcaf_io.so
+    PATHS
+      /usr/lib
+      /usr/local/lib
+      /opt/local/lib
+      /sw/lib
+      ${CAF_INCLUDE_PATH}
+      ${CAF_LIBRARY_PATH}
+      ${CMAKE_LIBRARY_PATH}
+      ${CMAKE_INSTALL_PREFIX}/lib
+      ${LIBRARY_OUTPUT_PATH}
+      ${CAF_ROOT}/lib
+      ${CAF_ROOT}/build/lib
+      ${CAF_ROOT}/libcaf/build/lib
+      ${CAF_ROOT}/${CAF_BUILD_DIR}/lib
+      ${CAF_ROOT}/libcaf/${CAF_BUILD_DIR}/lib
+      ../libcaf/build/lib
+      ../../libcaf/build/lib
+      ../../../libcaf/build/lib)
+
+  find_library(CAF_LIBRARY_OPENCL
+    NAMES
+      libcaf_opencl.so
+    PATHS
+      /usr/lib
+      /usr/local/lib
+      /opt/local/lib
+      /sw/lib
+      ${CAF_INCLUDE_PATH}
+      ${CAF_LIBRARY_PATH}
+      ${CMAKE_LIBRARY_PATH}
+      ${CMAKE_INSTALL_PREFIX}/lib
+      ${LIBRARY_OUTPUT_PATH}
+      ${CAF_ROOT}/lib
+      ${CAF_ROOT}/build/lib
+      ${CAF_ROOT}/libcaf/build/lib
+      ${CAF_ROOT}/${CAF_BUILD_DIR}/lib
+      ${CAF_ROOT}/libcaf/${CAF_BUILD_DIR}/lib
+      ../libcaf/build/lib
+      ../../libcaf/build/lib
+      ../../../libcaf/build/lib)
+
+  if (CAF_LIBRARY AND CAF_LIBRARY_IO)
     message (STATUS "Library found ...")
-  else (CAF_LIBRARY)
+  else ()
     message (SEND_ERROR "Library NOT found. Provide absolute path with -DCAF_LIBRARY_PATH=<path-to-library>.")
-  endif (CAF_LIBRARY)
+  endif ()
 
   if (CAF_INCLUDE AND CAF_LIBRARY)
     set(CAF_FOUND TRUE)

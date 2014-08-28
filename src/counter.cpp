@@ -4,12 +4,12 @@
 
 #include <QByteArray>
 
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
 #include "include/counter.hpp"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 using namespace chrono;
 
 

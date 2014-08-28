@@ -6,7 +6,7 @@
 #include "include/controller.hpp"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
 controller::controller(actor server)
 : m_server(server)

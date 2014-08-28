@@ -6,19 +6,19 @@
 #include <QResizeEvent>
 #include <QInputDialog>
 
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
 #include "ui_main.h"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
 MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
     super(parent, f),//,
     //m_server(nullptr),
     m_imagelabel(nullptr)
 {
-    set_message_handler ([=](local_actor* self) -> partial_function {
+    set_message_handler ([=](local_actor* self) -> message_handler {
         return {
             on_arg_match >> [=](const QByteArray& ba) {
                 get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);

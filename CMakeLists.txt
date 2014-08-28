@@ -134,6 +134,9 @@ set(SOURCES
     ${FRACTAL_CPPA_UI_HDRS})
 
 add_executable(fractal-cppa ${SOURCES})
-target_link_libraries(fractal-cppa ${CMAKE_DL_LIBS} ${CAF_LIBRARY} ${QT_LIBRARIES} ${OPENCL_LIBRARIES})
+target_link_libraries(fractal-cppa ${CMAKE_DL_LIBS} ${CAF_LIBRARY}
+                      ${CAF_LIBRARY_IO} ${CAF_LIBRARY_OPENCL} ${QT_LIBRARIES}
+                      ${OPENCL_LIBRARIES})
 add_dependencies(fractal-cppa all_examples)
+
 

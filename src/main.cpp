@@ -5,7 +5,10 @@
 #include <QApplication>
 
 #include "cppa/opt.hpp"
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
+
+#include "caf/io/publish.hpp"
+#include "caf/io/remote_actor.hpp"
 
 #include "ui_main.h"
 #include "server.hpp"
@@ -17,7 +20,7 @@
 #include "q_byte_array_info.hpp"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
 std::vector<std::string> split(const std::string& str, char delim, bool keep_empties = false) {
     using namespace std;
@@ -37,12 +40,14 @@ int main(int argc, char** argv) {
     announce<vector<float>>();
     announce<set<actor>>();
     announce<map<string, atom_value>>();
-    announce(typeid(QByteArray), create_unique<q_byte_array_info>());
+    // FIXME
+    //announce(typeid(QByteArray), create_unique<q_byte_array_info>());
     // sent from server to client
-    announce_tuple<atom_value, uint32_t, uint32_t, uint32_t, uint32_t,
-                   float_type, float_type, float_type, float_type>();
+    //announce_tuple<atom_value, uint32_t, uint32_t, uint32_t, uint32_t,
+    //               float_type, float_type, float_type, float_type>();
     // sent from client to server
-    announce_tuple<atom_value, uint32_t, QByteArray>();
+    //announce_tuple<atom_value, uint32_t, QByteArray>();
+    announce<QByteArray>();
     // parse command line options
     string host;
     uint16_t port = 20283;
@@ -108,7 +113,7 @@ int main(int argc, char** argv) {
             }
         };
         if (publish_workers) {
-            try { publish(self, port); }
+            try { caf::io::publish(self, port); }
             catch (std::exception& e) {
                 cerr << "unable to publish at port " << port << ": "
                      << e.what() << endl;
@@ -127,7 +132,7 @@ int main(int argc, char** argv) {
         }
         else {
             try {
-                auto controller = remote_actor(host, port);
+                auto controller = io::remote_actor(host, port);
                 send_workers(controller);
             }
             catch (std::exception& e) {
@@ -183,7 +188,7 @@ int main(int argc, char** argv) {
                 match(split(n, ':')) (
                     on(val<string>, projection<uint16_t>) >> [&](const string& host, std::uint16_t p) {
                         try {
-                            auto ptr = remote_actor(host, p);
+                            auto ptr = io::remote_actor(host, p);
                             remotes.push_back(ptr);
                             send_as(ctrl, ptr, atom("getWorkers"), ctrl);
                         }
@@ -196,7 +201,7 @@ int main(int argc, char** argv) {
             }
         }
 //        else {
-        try { publish(ctrl, port); }
+        try { io::publish(ctrl, port); }
         catch (std::exception& e) {
             cerr << "unable to publish actor: " << e.what() << endl;
             return -1;
@@ -220,7 +225,7 @@ int main(int argc, char** argv) {
             self->send(cntr, atom("init"), self);
             uint32_t received_images = 0;
             uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
-            self->receive_while(gref(received_images) < gref(total_images)) (
+            self->receive_while([&] { return received_images < total_images; }) (
                 on(atom("image"), arg_match) >> [&](uint32_t img_id, const QByteArray& ba) {
                     auto img = QImage::fromData(ba, image_format);
                     std::ostringstream fname;
@@ -265,7 +270,7 @@ int main(int argc, char** argv) {
     }
     else if (is_controller && !is_server) { // is controller ui
         cout << "starting controller ui" << endl;
-        auto ctrl = remote_actor(host, port);
+        auto ctrl = io::remote_actor(host, port);
         // launch gui
         QApplication app{argc, argv};
         QMainWindow window;

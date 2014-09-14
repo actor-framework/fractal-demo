@@ -7,6 +7,7 @@
 #include "caf/all.hpp"
 #include "caf/io/all.hpp"
 #include "caf/riac/all.hpp"
+#include "cppa/opt.hpp"
 
 #include "ui_main.h"
 #include "server.hpp"
@@ -51,11 +52,10 @@ int main(int argc, char** argv) {
   bool with_opencl = false;
   bool is_controller = false;
   bool publish_workers = false;
-  bool use_riac        = false;
   uint32_t opencl_device_id = 0;
   std::string nodes_list;
-  std::string nexus_ip;
-  std::uint16_t nexus_port;
+  std::string nexus_host;
+  optional<uint16_t> nexus_port;
   const map<string, atom_value> valid_fractal
     = {{"mandelbrot", atom("mandel")},
        {"tricorn", atom("tricorn")},
@@ -68,9 +68,8 @@ int main(int argc, char** argv) {
     on_opt1('p', "port", &desc, "set port (default: 20283)", "general")    >> rd_arg(port),
     on_opt0('h', "help", &desc, "print this text", "general")              >> print_desc_and_exit(&desc),
     on_opt1('d', "device", &desc, "set OpenCL device", "general")          >> rd_arg(opencl_device_id),
-    on_opt0('r', "riac", &desc, "use CAFs debugging tools", "general")     >> set_flag(use_riac),
-    on_opt1('n', "nexus", &desc, "set nexus IP for debugging", "general")  >> rd_arg(nexus_ip),
-    on_opt1('d', "probe", &desc, "set nexus port", "general")              >> rd_arg(nexus_port),
+    on_opt1('n', "nexus-host", &desc, "set nexus IP for debugging", "general")  >> rd_arg(nexus_host),
+    on_opt1('d', "nexus-port", &desc, "set nexus port", "general")              >> rd_arg(nexus_port),
     // client options
     on_opt1('H', "host", &desc, "set server host", "client")               >> rd_arg(host),
     on_opt1('w', "worker", &desc, "number workers (default: 1)", "client") >> rd_arg(num_workers),
@@ -82,23 +81,27 @@ int main(int argc, char** argv) {
     on_opt0('g', "no-gui", &desc, "save images to local directory", "server") >> set_flag(no_gui),
     // controller
     on_opt0('c', "controller", &desc, "start a controller ui", "controller") >> set_flag(is_controller));
-  if (!args_valid)
+  if (!args_valid) {
     print_desc_and_exit(&desc)();
-  if (use_riac)
-    riac::init_probe(nexus_ip, nexus_port);
+  }
+  if (nexus_port && !nexus_host.empty()) {
+    riac::init_probe(nexus_host, *nexus_port);
+  }
   if (!is_server && !is_controller) {
-    if (num_workers == 0)
+    if (num_workers == 0) {
       num_workers = 1;
-    std::vector<actor> workers;
-#ifdef ENABLE_OPENCL
-    // spawn at most one GPU worker
-    if (with_opencl) {
-      cout << "add an OpenCL worker" << endl;
-      workers.push_back(spawn_opencl_client(opencl_device_id));
-      if (num_workers > 0)
-        --num_workers;
     }
-#endif // ENABLE_OPENCL
+    std::vector<actor> workers;
+#   ifdef ENABLE_OPENCL
+      // spawn at most one GPU worker
+      if (with_opencl) {
+        cout << "add an OpenCL worker" << endl;
+        workers.push_back(spawn_opencl_client(opencl_device_id));
+        if (num_workers > 0) {
+          --num_workers;
+        }
+      }
+#   endif // ENABLE_OPENCL
     for (size_t i = 0; i < num_workers; ++i) {
       cout << "add a CPU worker" << endl;
       workers.push_back(spawn<client>());
@@ -118,7 +121,7 @@ int main(int argc, char** argv) {
     };
     if (publish_workers) {
       try {
-        publish(self, port);
+        io::publish(self, port);
       } catch (std::exception& e) {
         cerr << "unable to publish at port " << port << ": " << e.what()
              << endl;
@@ -126,16 +129,16 @@ int main(int argc, char** argv) {
       }
       self->receive_loop(
         on(atom("getWorkers"), arg_match) >> [&](const actor& last_sender) {
-                                               auto controller = last_sender;
-                                               send_workers(controller);
-                                             },
+          auto controller = last_sender;
+          send_workers(controller);
+        },
         others() >> [&] {
-                      cerr << "unexpected: " << to_string(self->last_dequeued())
-                           << endl;
-                    });
+          cerr << "unexpected: " << to_string(self->last_dequeued()) << endl;
+        }
+      );
     } else {
       try {
-        auto controller = remote_actor(host, port);
+        auto controller = io::remote_actor(host, port);
         send_workers(controller);
       } catch (std::exception& e) {
         cerr << "unable to connect to server: " << e.what() << endl;
@@ -172,7 +175,8 @@ int main(int argc, char** argv) {
     config_map ini;
     try {
       ini.read_ini("fractal_server.ini");
-    } catch (exception&) { /* no config file found (use defaults)" */
+    } catch (exception&) {
+      // no config file found (use defaults)
     }
     // counter requires init message with gui widget
     auto cntr = spawn<counter>();
@@ -190,36 +194,36 @@ int main(int argc, char** argv) {
     if (not nodes_list.empty()) {
       auto nl = split(nodes_list, ',');
       for (auto& n : nl) {
-        match(split(n, ':'))(on(val<string>, projection<uint16_t>) >>
-                             [&](const string& host, std::uint16_t p) {
-          try {
-            auto ptr = remote_actor(host, p);
-            remotes.push_back(ptr);
-            send_as(ctrl, ptr, atom("getWorkers"), ctrl);
-          } catch (std::exception& e) {
-            cerr << "unable to connect to " << host << " on port " << p << endl;
+        match(split(n, ':'))(
+          on(val<string>, projection<uint16_t>) >>
+          [&](const string& host, std::uint16_t p) {
+            try {
+              auto ptr = io::remote_actor(host, p);
+              remotes.push_back(ptr);
+              send_as(ctrl, ptr, atom("getWorkers"), ctrl);
+            } catch (std::exception& e) {
+              cerr << "unable to connect to " << host << " on port " << p << endl;
+            }
           }
-        });
+        );
       }
     }
-    //        else {
     try {
-      publish(ctrl, port);
+      io::publish(ctrl, port);
     } catch (std::exception& e) {
       cerr << "unable to publish actor: " << e.what() << endl;
       return -1;
     }
-    //        }
     if (num_workers > 0) {
-#ifdef ENABLE_OPENCL
-      // spawn at most one GPU worker
-      if (with_opencl) {
-        cout << "add an OpenCL worker" << endl;
-        send_as(spawn_opencl_client(opencl_device_id), ctrl, atom("add"));
-        if (num_workers > 0)
-          --num_workers;
-      }
-#endif // ENABLE_OPENCL
+#   ifdef ENABLE_OPENCL
+        // spawn at most one GPU worker
+        if (with_opencl) {
+          cout << "add an OpenCL worker" << endl;
+          send_as(spawn_opencl_client(opencl_device_id), ctrl, atom("add"));
+          if (num_workers > 0)
+            --num_workers;
+        }
+#   endif // ENABLE_OPENCL
       for (size_t i = 0; i < num_workers; ++i) {
         cout << "add a CPU worker" << endl;
         send_as(spawn<client>(), ctrl, atom("add"));
@@ -271,7 +275,7 @@ int main(int argc, char** argv) {
     shutdown();
   } else if (is_controller && !is_server) { // is controller ui
     cout << "starting controller ui" << endl;
-    auto ctrl = remote_actor(host, port);
+    auto ctrl = io::remote_actor(host, port);
     // launch gui
     QApplication app{argc, argv};
     QMainWindow window;
@@ -289,6 +293,4 @@ int main(int argc, char** argv) {
   } else {
     print_desc_and_exit(&desc)();
   }
-
-  return 0;
 }

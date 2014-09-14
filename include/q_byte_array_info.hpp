@@ -3,6 +3,7 @@
 
 #include <QByteArray>
 #include "caf/all.hpp"
+#include "caf/detail/abstract_uniform_type_info.hpp"
 
 class q_byte_array_info : public caf::detail::abstract_uniform_type_info<QByteArray> {
 
@@ -14,3 +15,4 @@ class q_byte_array_info : public caf::detail::abstract_uniform_type_info<QByteAr
 };
 
 #endif
+

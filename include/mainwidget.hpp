@@ -9,6 +9,7 @@
 
 #include "caf/all.hpp"
 #include "caf/io/all.hpp"
+
 #include "caf/mixin/actor_widget.hpp"
 
 class MainWidget : public caf::mixin::actor_widget<QWidget> {
@@ -51,3 +52,4 @@ class MainWidget : public caf::mixin::actor_widget<QWidget> {
 };
 
 #endif // MAINWIDGET_HPP
+

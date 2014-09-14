@@ -11,7 +11,7 @@
 #include <QPicture>
 #include <QByteArray>
 
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
 #include "imagelabel.h"
 #include "mainwidget.hpp"
@@ -19,13 +19,13 @@
 #include "fractal_request.hpp"
 #include "fractal_request_stream.hpp"
 
-class server : public cppa::event_based_actor {
+class server : public caf::event_based_actor {
 
  public:
 
-    server(config_map& config, cppa::actor counter, cppa::atom_value fractal_type_atom);
+    server(config_map& config, caf::actor counter, caf::atom_value fractal_type_atom);
 
-    cppa::behavior make_behavior() override;
+    caf::behavior make_behavior() override;
 
  private:
 
@@ -35,16 +35,17 @@ class server : public cppa::event_based_actor {
     //std::uint32_t m_assign_id;
     std::uint32_t m_iterations;
 
-    cppa::atom_value m_fractal_type_atom;
-    cppa::actor m_counter;
+    caf::atom_value m_fractal_type_atom;
+    caf::actor m_counter;
 
-    std::set<cppa::actor> m_workers;
-    std::map<cppa::actor, std::uint32_t> m_jobs;
+    std::set<caf::actor> m_workers;
+    std::map<caf::actor, std::uint32_t> m_jobs;
 
     fractal_request_stream m_stream;
 
-    void send_next_job(const cppa::actor& worker);
+    void send_next_job(const caf::actor& worker);
 
 };
 
 #endif
+

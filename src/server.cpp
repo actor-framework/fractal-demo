@@ -11,8 +11,7 @@
 #include <algorithm>
 #include <functional>
 
-#include "cppa/opt.hpp"
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
 #include "ui_main.h"
 #include "server.hpp"
@@ -21,7 +20,7 @@
 #include "q_byte_array_info.hpp"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
 void server::send_next_job(const actor& worker) {
     if (!worker) {
@@ -150,7 +149,7 @@ struct ini_helper {
     }
 };
 
-server::server(config_map& ini, cppa::actor counter, cppa::atom_value fractal_type_atom)
+server::server(config_map& ini, caf::actor counter, caf::atom_value fractal_type_atom)
 : m_next_id(0)
 , m_counter(counter) {
     ini_helper rd{ini};

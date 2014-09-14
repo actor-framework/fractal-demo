@@ -10,8 +10,7 @@
 #include <QBuffer>
 #include <QByteArray>
 
-#include "cppa/opt.hpp"
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
 #include "client.hpp"
 #include "config.hpp"
@@ -20,19 +19,19 @@
 #include "q_byte_array_info.hpp"
 
 #ifdef ENABLE_OPENCL
-#include "cppa/opencl.hpp"
+#include "caf/opencl/spawn_cl.hpp"
 #endif // ENABLE_OPENCL
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
-any_tuple response_from_image(const actor& worker, QImage image, uint32_t image_id) {
+message response_from_image(const actor& worker, QImage image, uint32_t image_id) {
     QByteArray ba;
     QBuffer buf{&ba};
     buf.open(QIODevice::WriteOnly);
     image.save(&buf, image_format);
     buf.close();
-    return make_any_tuple(atom("result"), worker, image_id, std::move(ba));
+    return make_message(atom("result"), worker, image_id, std::move(ba));
 }
 
 
@@ -279,7 +278,7 @@ actor spawn_opencl_client(uint32_t device_id) {
 
 #else
 
-cppa::actor spawn_opencl_client(uint32_t) {
+caf::actor spawn_opencl_client(uint32_t) {
     throw std::logic_error("spawn_opencl_client: compiled wo/ OpenCL");
 }
 

@@ -4,8 +4,7 @@
 #include <string>
 #include <type_traits>
 
-#include "caf/all.hpp"
-#include "caf/io/all.hpp"
+#include "caf/optional.hpp"
 
 template<typename T>
 caf::optional<T> projection(const std::string& arg) {
@@ -20,3 +19,4 @@ caf::optional<T> projection(const std::string& arg) {
 }
 
 #endif // PROJECTION_HPP
+

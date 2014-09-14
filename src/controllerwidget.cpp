@@ -5,12 +5,12 @@
 #include <iterator>
 #include <algorithm>
 
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
 
 #include "include/controllerwidget.hpp"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
 
 ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :

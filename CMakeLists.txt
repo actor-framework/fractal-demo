@@ -6,10 +6,9 @@ set(FRACTAL_CPPA_VERSION_MINOR 1)
 set(FRACTAL_CPPA_VERSION_PATCH 0)
 
 # qt variables
-set( FRACTAL_CPPA_HDRS)
-set( FRACTAL_CPPA_UIS main.ui controller.ui)
-set( FRACTAL_CPPA_RCS )
-
+set(FRACTAL_CPPA_HDRS)
+set(FRACTAL_CPPA_UIS main.ui controller.ui)
+set(FRACTAL_CPPA_RCS)
 
 # prohibit in-source builds
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -63,23 +62,18 @@ else ()
   message(FATAL_ERROR "Your C++ compiler does not support C++11.")
 endif ()
 
-if (CPPA_LOG_LEVEL)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPPA_LOG_LEVEL=${CPPA_LOG_LEVEL}")
-endif(CPPA_LOG_LEVEL)
+if (CAF_LOG_LEVEL)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCAF_LOG_LEVEL=${CAF_LOG_LEVEL}")
+endif(CAF_LOG_LEVEL)
 
 # set build type (evaluate ENABLE_DEBUG flag)
 if (ENABLE_DEBUG)
   set(CMAKE_BUILD_TYPE Debug)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DLIBCAF_DEBUG")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCAF_DEBUG")
 else ()
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif ()
 
-if (DISABLE_CONTEXT_SWITCHING)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCPPA_DISABLE_CONTEXT_SWITCHING")
-endif ()
-
-# find caf
 find_package(Libcaf COMPONENTS core io riac REQUIRED)
 
 # find opencl
@@ -91,27 +85,30 @@ endif (ENABLE_OPENCL)
 
 # by default only QtCore and QtGui modules are enabled
 # other modules must be enabled like this:
-#SET( QT_USE_QT3SUPPORT TRUE )
-#SET( QT_USE_QTXML TRUE )
+#SET(QT_USE_QT3SUPPORT TRUE)
+#SET(QT_USE_QTXML TRUE)
 
 # this command finds Qt4 libraries and sets all required variables
 # note that it's Qt4, not QT4 or qt4
-FIND_PACKAGE( Qt4 REQUIRED )
+FIND_PACKAGE(Qt4 REQUIRED)
 
 # add some useful macros and variables
 # (QT_USE_FILE is a variable defined by FIND_PACKAGE( Qt4 ) that contains a path to CMake script)
-INCLUDE( ${QT_USE_FILE} )
-
+INCLUDE(${QT_USE_FILE})
 
 # this command will generate rules that will run rcc on all files from SAMPLE_RCS
 # in result SAMPLE_RC_SRCS variable will contain paths to files produced by rcc
-QT4_ADD_RESOURCES( FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} fractal.qrc )
+QT4_ADD_RESOURCES(FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} fractal.qrc)
 
 # this will run uic on .ui files:
-QT4_WRAP_UI( FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS} )
+QT4_WRAP_UI(FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS})
 
 # and finally this will run moc:
-QT4_WRAP_CPP( FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS} include/server.hpp include/imagelabel.h include/mainwidget.hpp include/controllerwidget.hpp)
+QT4_WRAP_CPP(FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS}
+                                   include/server.hpp
+                                   include/imagelabel.h
+                                   include/mainwidget.hpp
+                                   include/controllerwidget.hpp)
 
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
@@ -135,7 +132,11 @@ set(SOURCES
     ${FRACTAL_CPPA_RC_SRCS}
     ${FRACTAL_CPPA_UI_HDRS})
 
-add_executable(fractal-cppa ${SOURCES})
+file(GLOB HEADERS "include/*.hpp")
+
+
+add_executable(fractal-cppa ${SOURCES} ${HEADERS})
 target_link_libraries(fractal-cppa ${CMAKE_DL_LIBS} ${LIBCAF_LIBRARIES} ${QT_LIBRARIES} ${OPENCL_LIBRARIES})
 add_dependencies(fractal-cppa all_examples)
+
 

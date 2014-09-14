@@ -298,7 +298,7 @@ behavior client::make_behavior(){
                                          float_type max_re,
                                          float_type min_im,
                                          float_type max_im) {
-            bool frac_changed;
+            bool frac_changed = false;
             if(!(m_current_fractal_type == atom("mandel"))) {
                 m_current_fractal_type  = atom("mandel");
                 frac_changed = true;
@@ -322,7 +322,7 @@ behavior client::make_behavior(){
                                          float_type max_re,
                                          float_type min_im,
                                          float_type max_im) {
-            bool frac_changed;
+            bool frac_changed = false;
             if(!(m_current_fractal_type == atom("tricorn"))) {
                 m_current_fractal_type  = atom("tricorn");
                 frac_changed = true;
@@ -346,7 +346,7 @@ behavior client::make_behavior(){
                                          float_type max_re,
                                          float_type min_im,
                                          float_type max_im) {
-            bool frac_changed;
+            bool frac_changed = false;
             if(!(m_current_fractal_type == atom("burnship"))) {
                 m_current_fractal_type  = atom("burnship");
                 frac_changed = true;

@@ -4,8 +4,8 @@
 #include <QMainWindow>
 #include <QApplication>
 
-#include "cppa/opt.hpp"
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
+#include "caf/io/all.hpp"
 
 #include "ui_main.h"
 #include "server.hpp"

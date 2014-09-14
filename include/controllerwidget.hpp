@@ -8,10 +8,11 @@
 #include <QSlider>
 #include <QComboBox>
 
-#include "cppa/cppa.hpp"
-#include "cppa/qtsupport/actor_widget_mixin.hpp"
+#include "caf/all.hpp"
+#include "caf/io/all.hpp"
+#include "caf/mixin/actor_widget.hpp"
 
-class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
+class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
 
     Q_OBJECT
 
@@ -92,9 +93,9 @@ class ControllerWidget : public cppa::actor_widget_mixin<QWidget> {
     }
 
 
-    typedef cppa::actor_widget_mixin<QWidget> super;
+    typedef caf::mixin::actor_widget<QWidget> super;
 
-    cppa::actor m_controller;
+    caf::actor m_controller;
 
     QSlider* m_cpu_slider;
     QSlider* m_gpu_slider;

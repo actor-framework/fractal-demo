@@ -30,7 +30,7 @@ ControllerWidget::ControllerWidget(QWidget *parent, Qt::WindowFlags f) :
                   make_pair(2560,1440)}
 
 {
-    set_message_handler ([=](local_actor* self) -> partial_function {
+    set_message_handler ([=](local_actor* self) -> message_handler {
         return {
             on(atom("max_cpu"), arg_match) >> [=] (size_t max_cpu) {
                 set_cpu_max(max_cpu);

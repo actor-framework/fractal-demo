@@ -18,4 +18,3 @@ const float_type default_max_imag = default_min_imag
                                   * default_height
                                   / default_width;
 const float_type default_zoom     = 0.9; // must be >= 0.0
-

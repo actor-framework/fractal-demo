@@ -10,77 +10,79 @@
 
 using namespace std;
 using namespace caf;
-using namespace chrono;
 
-
-counter::counter() :
- m_next(0), // image id, should start with 0
- m_delay(20), // delay between images, is adjusted later on
- m_buffer_limit(300), // images buffers, overhead is discarded
- m_idx(0),
- m_last(steady_clock::now()),
- m_intervals(100) // number of values used to calculate mean fps
-{
-    fill(begin(m_intervals), end(m_intervals), std::chrono::milliseconds(20));
+counter::counter()
+    : m_next(0),           // image id, should start with 0
+      m_delay(20),         // delay between images, is adjusted later on
+      m_buffer_limit(300), // images buffers, overhead is discarded
+      m_idx(0),
+      m_last(chrono::steady_clock::now()),
+      m_intervals(100) { // number of values used to calculate mean fps
+  fill(begin(m_intervals), end(m_intervals), chrono::milliseconds(20));
 }
 
 bool counter::probe() {
-    auto i = m_dropped.find(m_next);
-    if (i == m_dropped.end()) {
-        return false;
-    }
-    else {
-        cout << "dropped: " << m_next << endl;
-        m_dropped.erase(i);
-        ++m_next;
-        return true;
-    }
+  auto i = m_dropped.find(m_next);
+  if (i == m_dropped.end()) {
+    return false;
+  }
+  else {
+    cout << "dropped: " << m_next << endl;
+    m_dropped.erase(i);
+    ++m_next;
+    return true;
+  }
 }
 
+caf::behavior counter::make_behavior() {
+  trap_exit(true);
+  return {
+    on(atom("init"), arg_match) >> [=](actor widget, actor ctrl) {
+      delayed_send(this, chrono::milliseconds(m_delay), atom("tick"));
+      init(widget, ctrl);
+    }
+  };
+}
 
 void counter::init(actor widget, actor ctrl) {
-    become(
-        on(atom("tick")) >> [=] {
-            while (probe());
-            auto j = m_buffer.find(m_next);
-            if (j != m_buffer.end()) {
-                //aout << "found: " << m_next << endl;
-                send(widget, move(j->second)); // todo is this valid?
-                m_buffer.erase(j);
-                ++m_next;
-            }
-            delayed_send(this, chrono::milliseconds(m_delay), atom("tick"));
-        },
-        on(atom("image"), arg_match) >> [=] (uint32_t id,
-                                             const QByteArray& ba) {
-            if (m_buffer.size() > m_buffer_limit) {
-                aout(this) << "[!!!] buffer is too full, dropping images" << endl;
-                m_dropped.insert(id);
-            }
-            else {
-                m_buffer.insert(make_pair(id, ba));
-            }
-            steady_clock::time_point now = steady_clock::now();
-            m_intervals[m_idx] = duration_cast<milliseconds>(now - m_last);
-            m_idx = (m_idx + 1) % m_intervals.size();
-            auto total = accumulate(begin(m_intervals), end(m_intervals), milliseconds(0));
-            m_delay = total.count() / m_intervals.size();
-            m_last = now;
-            // aout << "adjusted delay to: " << m_delay << endl;
-            send(ctrl, atom("fps"), m_delay);
-            // todo track ips, adjust framerate
-        },
-        on(atom("dropped"), arg_match) >> [=] (uint32_t id) {
-            if (id > m_next) { m_dropped.insert(id); }
-            else if (id == m_next) { ++m_next; }
-        },
-        others() >> [=] {
-            cout << "[!!!] counter received unexpected message: '"
-                 << to_string(last_dequeued())
-                 << "'." << endl;
-        }
-    );
+  become(
+    on(atom("tick")) >> [=]{
+      while (probe());
+      auto j = m_buffer.find(m_next);
+      if (j != m_buffer.end()) {
+          //aout << "found: " << m_next << endl;
+          send(widget, move(j->second)); // todo is this valid?
+          m_buffer.erase(j);
+          ++m_next;
+      }
+      delayed_send(this, chrono::milliseconds(m_delay), atom("tick"));
+    },
+    on(atom("image"), arg_match) >> [=](uint32_t id, const QByteArray& ba) {
+      if (m_buffer.size() > m_buffer_limit) {
+        aout(this) << "[!!!] buffer is too full, dropping images" << endl;
+        m_dropped.insert(id);
+      }
+      else {
+        m_buffer.insert(make_pair(id, ba));
+      }
+      chrono::steady_clock::time_point now = chrono::steady_clock::now();
+      m_intervals[m_idx] = chrono::duration_cast<chrono::milliseconds>(now - m_last);
+      m_idx = (m_idx + 1) % m_intervals.size();
+      auto total = accumulate(begin(m_intervals), end(m_intervals), chrono::milliseconds(0));
+      m_delay = total.count() / m_intervals.size();
+      m_last = now;
+      // aout << "adjusted delay to: " << m_delay << endl;
+      send(ctrl, atom("fps"), m_delay);
+      // todo track ips, adjust framerate
+    },
+    on(atom("dropped"), arg_match) >> [=](uint32_t id) {
+      if (id > m_next) { m_dropped.insert(id); }
+      else if (id == m_next) { ++m_next; }
+    },
+    others() >> [=]{
+      cout << "[!!!] counter received unexpected message: '"
+           << to_string(last_dequeued())
+           << "'." << endl;
+    }
+  );
 }
-
-
-

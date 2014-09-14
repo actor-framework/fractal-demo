@@ -13,34 +13,35 @@ using fractal_request = std::tuple<std::uint32_t,    // 0: width,
                                    float_type,       // 4: min img
                                    float_type>;      // 5: max img
 
-template<typename R>
+template <typename R>
 auto width(R& req) -> decltype(std::get<0>(req)) {
-    return std::get<0>(req);
+  return std::get<0>(req);
 }
 
-template<typename R>
+template <typename R>
 auto height(R& req) -> decltype(std::get<1>(req)) {
-    return std::get<1>(req);
+  return std::get<1>(req);
 }
 
-template<typename R>
+template <typename R>
 auto min_re(R& req) -> decltype(std::get<2>(req)) {
-    return std::get<2>(req);
+  return std::get<2>(req);
 }
 
-template<typename R>
+template <typename R>
 auto max_re(R& req) -> decltype(std::get<3>(req)) {
-    return std::get<3>(req);
+  return std::get<3>(req);
 }
 
-template<typename R>
+template <typename R>
 auto min_im(R& req) -> decltype(std::get<4>(req)) {
-    return std::get<4>(req);
+  return std::get<4>(req);
 }
 
-template<typename R>
+template <typename R>
 auto max_im(R& req) -> decltype(std::get<5>(req)) {
-    return std::get<5>(req);
+  return std::get<5>(req);
 }
+
 #endif // FRACTAL_REQUEST_HPP
 

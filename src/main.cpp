@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
       self->send(cntr, atom("init"), self);
       uint32_t received_images = 0;
       uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
-      self->receive_while(gref(received_images) < gref(total_images))(
+      self->receive_while([&] { return received_images < total_images; }) (
         on(atom("image"), arg_match)
         >> [&](uint32_t img_id, const QByteArray& ba) {
              auto img = QImage::fromData(ba, image_format);

@@ -191,6 +191,7 @@ void server::send_next_image() {
     m_image_cache.erase(i);
     ++m_draw_pos;
     ++m_drawn_images;
+    assign_job(); // maybe we can assign a new job now
   }
 }
 
@@ -199,9 +200,16 @@ bool server::assign_job() {
     return false;
   }
   for (auto& w : m_workers) {
-    if (m_assigned_jobs.count(w) == 0) {
+    auto pred = [w](const job_map::value_type& kvp) {
+      return kvp.second == w;
+    };
+    auto last = m_assigned_jobs.end();
+    auto i = std::find_if(m_assigned_jobs.begin(), last, pred);
+    if (i == last) {
+      // worker has no job assigned yet
       send_next_job(w);
+      return true;
     }
   }
-  return true;
+  return false;
 }

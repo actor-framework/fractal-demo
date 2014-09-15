@@ -67,8 +67,8 @@ int main(int argc, char** argv) {
     on_opt1('p', "port", &desc, "set port (default: 20283)", "general")    >> rd_arg(port),
     on_opt0('h', "help", &desc, "print this text", "general")              >> print_desc_and_exit(&desc),
     on_opt1('d', "device", &desc, "set OpenCL device", "general")          >> rd_arg(opencl_device_id),
-    on_opt1('n', "nexus-host", &desc, "set nexus IP for debugging", "general")  >> rd_arg(nexus_host),
-    on_opt1('d', "nexus-port", &desc, "set nexus port", "general")              >> rd_arg(nexus_port),
+    //on_opt1('n', "nexus-host", &desc, "set nexus IP for debugging", "general")  >> rd_arg(nexus_host),
+    //on_opt1('d', "nexus-port", &desc, "set nexus port", "general")              >> rd_arg(nexus_port),
     // client options
     on_opt1('H', "host", &desc, "set server host", "client")               >> rd_arg(host),
     on_opt1('w', "worker", &desc, "number workers (default: 1)", "client") >> rd_arg(num_workers),
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
     on_opt0('u', "publish", &desc, "don't connect to server; only publish worker(s) at given port", "client") >> set_flag(publish_workers),
     // server options
     on_opt1('f', "fractal", &desc, "choose fractaltype (default: mandelbrot)", "server") >> rd_arg(fractal),
-    on_opt1('n', "nodes", &desc, "use given list (host:port notation) as workes", "server") >> rd_arg(nodes_list),
+    on_opt1('n', "node", &desc, "add given node (host:port notation) as workes", "server") >> rd_arg(nodes_list),
     on_opt0('g', "no-gui", &desc, "save images to local directory", "server") >> set_flag(no_gui),
     // controller
     on_opt0('c', "controller", &desc, "start a controller ui", "controller") >> set_flag(is_controller));
@@ -128,8 +128,7 @@ int main(int argc, char** argv) {
       }
       self->receive_loop(
         on(atom("getWorkers"), arg_match) >> [&](const actor& last_sender) {
-          auto controller = last_sender;
-          send_workers(controller);
+          send_workers(last_sender);
         },
         others() >> [&] {
           cerr << "unexpected: " << to_string(self->last_dequeued()) << endl;
@@ -190,11 +189,14 @@ int main(int argc, char** argv) {
     vector<actor> remotes;
     if (not nodes_list.empty()) {
       auto nl = split(nodes_list, ',');
+      aout(self) << "try to connect to " << nl.size() << " worker nodes" << endl;
       for (auto& n : nl) {
-        match(split(n, ':'))(
+        auto parts = split(n, ':');
+        message_builder{parts.begin(), parts.end()}.apply(
           on(val<string>, projection<uint16_t>) >>
           [&](const string& host, std::uint16_t p) {
             try {
+              aout(self) << "get workers from " << host << ":" << p << endl;
               auto ptr = io::remote_actor(host, p);
               remotes.push_back(ptr);
               send_as(ctrl, ptr, atom("getWorkers"), ctrl);

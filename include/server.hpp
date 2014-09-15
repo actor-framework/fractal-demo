@@ -27,6 +27,7 @@ class server : public caf::event_based_actor {
   caf::behavior make_behavior() override;
 
  private:
+  using job_map = std::map<job_id, caf::actor>;
   // assign_job
   bool assign_job();
   // create and send a new job
@@ -52,7 +53,7 @@ class server : public caf::event_based_actor {
   // sorted according to the number of jobs a worker has
   std::set<caf::actor> m_workers;
   // currently assigned jobs
-  std::map<job_id, caf::actor> m_assigned_jobs;
+  job_map m_assigned_jobs;
   // orphaned jobs that no longer produce a result
   std::set<job_id> m_dropped_jobs;
   // generator object for our jobs

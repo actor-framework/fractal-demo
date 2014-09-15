@@ -52,9 +52,9 @@ server::server(config_map& ini, atom_value fractal_type)
                 rd("max_imag", default_max_imag),
                 rd("zoom",     default_zoom));
   m_iterations = rd("iterations", default_iterations);
-  // todo: read from config
-  m_fps = 30;
-  m_max_pending_images = 3 * m_fps;
+  // todo: read from config and make configurable at runtime
+  m_fps = 2;
+  m_max_pending_images = 20;
 }
 
 behavior server::make_behavior() {

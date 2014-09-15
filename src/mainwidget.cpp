@@ -6,32 +6,29 @@
 #include <QResizeEvent>
 #include <QInputDialog>
 
-#include "cppa/cppa.hpp"
+#include "caf/all.hpp"
+#include "caf/io/all.hpp"
 
 #include "ui_main.h"
 
 using namespace std;
-using namespace cppa;
+using namespace caf;
 
-MainWidget::MainWidget(QWidget *parent, Qt::WindowFlags f) :
-    super(parent, f),//,
-    //m_server(nullptr),
-    m_imagelabel(nullptr)
-{
-    set_message_handler ([=](local_actor* self) -> partial_function {
-        return {
-            on_arg_match >> [=](const QByteArray& ba) {
-                get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
-            },
-            on(atom("done")) >> [] { },
-            others() >> [=] {
-                // Warum geht nicht aout?
-                cerr << "[!!!] mainwidget received unexpected message: '"
-                             << to_string(self->last_dequeued())
-                             << "'." << endl;
-            }
-        };
-    });
+MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
+    : super(parent, f),
+      m_imagelabel(nullptr) {
+  set_message_handler ([=](local_actor* self) -> message_handler {
+    return {
+      on(atom("Image"), arg_match) >> [=](const QByteArray& ba) {
+        get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
+      },
+      others() >> [=]{
+        cerr << "[!!!] mainwidget received unexpected message: "
+             << to_string(self->last_dequeued())
+             << endl;
+      }
+    };
+  });
 }
 
 void MainWidget::resizeEvent(QResizeEvent *) {
@@ -47,5 +44,5 @@ void MainWidget::resizeEvent(QResizeEvent *) {
 }
 
 void MainWidget::jumpTo() {
-    cout << "[!!!] 'jump to' not implemented!" << endl;
+  cout << "[!!!] 'jump to' not implemented!" << endl;
 }

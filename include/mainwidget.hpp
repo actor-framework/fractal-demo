@@ -7,46 +7,47 @@
 
 #include "imagelabel.h"
 
-#include "cppa/cppa.hpp"
-#include "cppa/qtsupport/actor_widget_mixin.hpp"
+#include "caf/all.hpp"
+#include "caf/io/all.hpp"
 
-class MainWidget : public cppa::actor_widget_mixin<QWidget> {
-    Q_OBJECT
+#include "caf/mixin/actor_widget.hpp"
 
- public slots:
+class MainWidget : public caf::mixin::actor_widget<QWidget> {
+  Q_OBJECT
 
-    void jumpTo();
+ public
+slots:
+
+  void jumpTo();
 
  public:
+  explicit MainWidget(QWidget* parent = nullptr, Qt::WindowFlags f = 0);
 
-    explicit MainWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
-
-    inline void set_server(const cppa::actor& server_actor) { m_server = server_actor; }
+  inline void set_server(const caf::actor& server_actor) {
+    m_server = server_actor;
+  }
 
  protected:
-
-    void resizeEvent(QResizeEvent * event);
+  void resizeEvent(QResizeEvent* event);
 
  private:
+  typedef caf::mixin::actor_widget<QWidget> super;
 
-    typedef cppa::actor_widget_mixin<QWidget> super;
-
-    template<typename T>
-    T* get(T*& member, const char* name) {
-        if (member == nullptr) {
-            member = findChild<T*>(name);
-            if (member == nullptr)
-                throw std::runtime_error("unable to find child: "
-                                         + std::string(name));
-        }
-        return member;
+  template <typename T>
+  T* get(T*& member, const char* name) {
+    if (member == nullptr) {
+      member = findChild<T*>(name);
+      if (member == nullptr) {
+        throw std::runtime_error("unable to find child: " + std::string(name));
+      }
     }
+    return member;
+  }
 
-    cppa::actor m_server;
-    cppa::actor m_controller;
-
-    ImageLabel *m_imagelabel;
-
+  caf::actor m_server;
+  caf::actor m_controller;
+  ImageLabel* m_imagelabel;
 };
 
 #endif // MAINWIDGET_HPP
+

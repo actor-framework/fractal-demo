@@ -22,3 +22,4 @@ class ImageLabel : public QLabel {
 };
 
 #endif
+

@@ -9,9 +9,11 @@ using namespace std;
 using namespace caf;
 
 controller::controller(actor server)
-: m_server(server)
-, m_use_normal(0)
-, m_use_opencl(0) { }
+    : m_server(server),
+      m_use_normal(0),
+      m_use_opencl(0) {
+  // nop
+}
 
 void controller::send_worker_config() {
   if (m_use_normal > m_normal.size() || m_use_opencl > m_opencl.size()) {
@@ -23,7 +25,7 @@ void controller::send_worker_config() {
   set<actor> workers;
   copy_n(m_normal.begin(), m_use_normal, inserter(workers, workers.end()));
   copy_n(m_opencl.begin(), m_use_opencl, inserter(workers, workers.end()));
-  send(m_server, atom("workers"), move(workers));
+  send(m_server, atom("SetWorkers"), move(workers));
 }
 
 behavior controller::make_behavior() {
@@ -66,7 +68,7 @@ behavior controller::make_behavior() {
     on(atom("changefrac"), arg_match) >> [=](atom_value frac_option) {
       send(m_server, atom("changefrac"), frac_option);
     },
-    on(atom("EXIT"), arg_match) >> [=](const exit_msg& msg) {
+    [=](const exit_msg& msg) {
       if (msg.source == m_widget) {
         aout(this) << "[!!!] GUI died" << endl;
       } else if (msg.source == m_server) {
@@ -75,18 +77,19 @@ behavior controller::make_behavior() {
       else {
         auto source = actor_cast<actor>(msg.source);
         if (m_normal.erase(source) > 0) {
+          aout(this) << "A CPU worker died" << endl;
           send(m_widget, atom("max_cpu"), m_normal.size());
+          send_worker_config();
         } else if (m_opencl.erase(source) > 0) {
+          aout(this) << "A GPU worker died" << endl;
           send(m_widget, atom("max_gpu"), m_opencl.size());
+          send_worker_config();
         } else {
-          // unknown actor exited, ignore this message
+          // unknown link died, fall back to default behavior
+          quit(msg.reason);
           return;
         }
-        send_worker_config();
       }
-    },
-    on(atom("quit")) >> [=]{
-      quit();
     },
     others() >> [=]{
       aout(this) << "[!!!] controller received unexpected message: '"

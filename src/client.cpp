@@ -25,14 +25,13 @@
 using namespace std;
 using namespace caf;
 
-message response_from_image(const actor& worker, QImage image,
-                            uint32_t image_id) {
+message response_from_image(QImage image, uint32_t image_id) {
   QByteArray ba;
   QBuffer buf{&ba};
   buf.open(QIODevice::WriteOnly);
   image.save(&buf, image_format);
   buf.close();
-  return make_message(atom("result"), worker, image_id, std::move(ba));
+  return make_message(atom("Result"), image_id, ba);
 }
 
 #ifdef ENABLE_OPENCL
@@ -268,10 +267,8 @@ caf::actor spawn_opencl_client(uint32_t) {
 
 behavior client::make_behavior(){
   return {
-    on(atom("quit")) >> [=]{
-      quit();
-    },
-    on(atom("mandel"), arg_match) >> [=](uint32_t width,
+    on(atom("mandel"), arg_match) >> [=](actor server,
+                                         uint32_t width,
                                          uint32_t height,
                                          uint32_t iterations,
                                          uint32_t image_id,
@@ -280,13 +277,12 @@ behavior client::make_behavior(){
                                          float_type min_im,
                                          float_type max_im) {
       bool frac_changed = false;
-      if(m_current_fractal_type != atom("mandel")) {
+      if (m_current_fractal_type != atom("mandel")) {
         m_current_fractal_type  = atom("mandel");
         frac_changed = true;
       }
       auto start = std::chrono::high_resolution_clock::now();
-      auto msg = response_from_image(this,
-                                     calculate_mandelbrot(m_palette, width,
+      auto msg = response_from_image(calculate_mandelbrot(m_palette, width,
                                                           height, iterations,
                                                           min_re, max_re,
                                                           min_im, max_im,
@@ -295,10 +291,12 @@ behavior client::make_behavior(){
       auto finish = std::chrono::high_resolution_clock::now();
       using ms = std::chrono::milliseconds;
       using std::chrono::duration_cast;
-      aout(this) << "calculation took "
+      aout(this) << "calculation of image nr. " << image_id << " took "
                  << (duration_cast<ms>(finish - start)).count()
-                 << "ms" << endl;
-      return msg;
+                 << "ms, "
+                 << "server = " << to_string(server) << ", "
+                 << "client = " << to_string(actor{this}) << endl;
+      send(server, msg);
     },
     on(atom("tricorn"), arg_match) >> [=](uint32_t width,
                                          uint32_t height,
@@ -307,14 +305,13 @@ behavior client::make_behavior(){
                                          float_type min_re,
                                          float_type max_re,
                                          float_type min_im,
-                                         float_type max_im) {
+                                         float_type max_im) -> message {
       bool frac_changed = false;
       if(!(m_current_fractal_type == atom("tricorn"))) {
         m_current_fractal_type  = atom("tricorn");
         frac_changed = true;
       }
-      return response_from_image(this,
-                                 calculate_tricorn(m_palette, width, height,
+      return response_from_image(calculate_tricorn(m_palette, width, height,
                                                    iterations, min_re, max_re,
                                                    min_im, max_im,
                                                    frac_changed),
@@ -327,14 +324,13 @@ behavior client::make_behavior(){
                                            float_type min_re,
                                            float_type max_re,
                                            float_type min_im,
-                                           float_type max_im) {
+                                           float_type max_im) -> message {
       bool frac_changed = false;
       if(!(m_current_fractal_type == atom("burnship"))) {
         m_current_fractal_type  = atom("burnship");
         frac_changed = true;
       }
-      return response_from_image(this,
-                                 calculate_burning_ship(m_palette, width,
+      return response_from_image(calculate_burning_ship(m_palette, width,
                                                         height, iterations,
                                                         min_re, max_re, min_im,
                                                         max_im, frac_changed),
@@ -344,7 +340,8 @@ behavior client::make_behavior(){
       return make_message(atom("normal"), this);
     },
     others() >> [=] {
-      aout(this) << "Unexpected: " << to_string(last_dequeued()) << endl;
+      aout(this) << "Client received unexpected message: "
+                 << to_string(last_dequeued()) << endl;
     }
   };
 }

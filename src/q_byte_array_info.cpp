@@ -14,7 +14,7 @@ void q_byte_array_info::serialize(const void* ptr,
 void q_byte_array_info::deserialize(void* ptr,
                                     caf::deserializer* source) const {
   auto ba_ptr = reinterpret_cast<QByteArray*>(ptr);
-  auto value = source->read<std::uint32_t>();
+  auto value = source->read<uint32_t>();
   ba_ptr->resize(value);
   source->read_raw(value, ba_ptr->data());
 }

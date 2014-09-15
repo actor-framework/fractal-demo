@@ -311,7 +311,7 @@ void fractal_request_stream::init(std::uint32_t width,
 }
 
 bool fractal_request_stream::next() {
-  if (not m_operations.empty()) {
+  if (!at_end()) {
     m_operations.back().first(this, m_freq);
     if (m_operations.back().second(this, m_freq)) m_operations.pop_back();
     return true;

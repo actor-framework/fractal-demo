@@ -10,9 +10,7 @@ extern const char* image_file_ending;
 
 extern const std::uint32_t default_width;
 extern const std::uint32_t default_height;
-extern const std::uint32_t default_interval;
 extern const std::uint32_t default_iterations;
-extern const std::uint32_t default_queuesize;
 
 extern const float_type default_min_real;
 extern const float_type default_max_real;

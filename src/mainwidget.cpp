@@ -19,11 +19,8 @@ MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
       m_imagelabel(nullptr) {
   set_message_handler ([=](local_actor* self) -> message_handler {
     return {
-      [=](const QByteArray& ba) {
+      on(atom("Image"), arg_match) >> [=](const QByteArray& ba) {
         get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
-      },
-      on(atom("done")) >> [] {
-        // nop
       },
       others() >> [=]{
         cerr << "[!!!] mainwidget received unexpected message: "

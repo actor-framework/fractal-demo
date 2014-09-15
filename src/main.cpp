@@ -12,7 +12,6 @@
 #include "ui_main.h"
 #include "server.hpp"
 #include "client.hpp"
-#include "counter.hpp"
 #include "controller.hpp"
 #include "mainwidget.hpp"
 #include "ui_controller.h"
@@ -108,15 +107,15 @@ int main(int argc, char** argv) {
     }
     auto emergency_shutdown = [&] {
       for (auto w : workers) {
-        self->send(w, atom("EXIT"), exit_reason::remote_link_unreachable);
+        self->send_exit(w, exit_reason::remote_link_unreachable);
       }
       await_all_actors_done();
       shutdown();
       exit(-1);
     };
-    auto send_workers = [&](const actor& controller) {
+    auto send_workers = [&](const actor& ctrl) {
       for (auto w : workers) {
-        send_as(w, controller, atom("add"));
+        send_as(w, ctrl, atom("add"));
       }
     };
     if (publish_workers) {
@@ -178,9 +177,7 @@ int main(int argc, char** argv) {
     } catch (exception&) {
       // no config file found (use defaults)
     }
-    // counter requires init message with gui widget
-    auto cntr = spawn<counter>();
-    auto srvr = spawn<server>(ini, cntr, fractal_type_pair->second);
+    auto srvr = spawn<server>(ini, fractal_type_pair->second);
     auto ctrl = spawn<controller>(srvr);
     // TODO: this vector is completely useless to the application,
     //      BUT: libcppa will close the network connection, because the app.
@@ -230,31 +227,29 @@ int main(int argc, char** argv) {
       }
     }
     if (no_gui) {
-      self->send(cntr, atom("init"), self);
+      self->send(srvr, atom("SetSink"), self);
       uint32_t received_images = 0;
       uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
       self->receive_while([&] { return received_images < total_images; }) (
-        on(atom("image"), arg_match)
-        >> [&](uint32_t img_id, const QByteArray& ba) {
-             auto img = QImage::fromData(ba, image_format);
-             std::ostringstream fname;
-             fname.width(4);
-             fname.fill('0');
-             fname.setf(ios_base::right);
-             fname << img_id << image_file_ending;
-             QFile f{fname.str().c_str()};
-             if (!f.open(QIODevice::WriteOnly)) {
-               cerr << "could not open file: " << fname.str() << endl;
-             } else
-               img.save(&f, image_format);
-             ++received_images;
-           },
-        on(atom("done"), arg_match)
-        >> [&](uint32_t num_images) { total_images = num_images; },
+        on(atom("image"), arg_match) >> [&](const QByteArray& ba) {
+           auto img = QImage::fromData(ba, image_format);
+           std::ostringstream fname;
+           fname.width(4);
+           fname.fill('0');
+           fname.setf(ios_base::right);
+           fname << image_file_ending;
+           QFile f{fname.str().c_str()};
+           if (!f.open(QIODevice::WriteOnly)) {
+             cerr << "could not open file: " << fname.str() << endl;
+           } else
+             img.save(&f, image_format);
+           ++received_images;
+         },
         others() >> [&] {
-                      cerr << "main:unexpected: "
-                           << to_string(self->last_dequeued()) << endl;
-                    });
+          cerr << "main:unexpected: "
+               << to_string(self->last_dequeued()) << endl;
+        }
+      );
     } else {
       // launch gui
       QApplication app{argc, argv};
@@ -263,14 +258,14 @@ int main(int argc, char** argv) {
       main.setupUi(&window);
       //            main.mainWidget->set_server(master);
       // todo tell widget about other actors?
-      window.resize(ini.get_as<int>("fractals", "width"),
-                    ini.get_as<int>("fractals", "height"));
-      self->send(cntr, atom("init"), main.mainWidget->as_actor(), ctrl);
+      window.resize(ini.get_or_else("fractals", "width", default_width),
+                    ini.get_or_else("fractals", "height", default_height));
+      self->send(srvr, atom("SetSink"), main.mainWidget->as_actor());
       window.show();
       app.quitOnLastWindowClosed();
       app.exec();
     }
-    self->send(ctrl, atom("quit"));
+    self->send_exit(ctrl, exit_reason::user_shutdown);
     // await_all_actors_done();
     shutdown();
   } else if (is_controller && !is_server) { // is controller ui

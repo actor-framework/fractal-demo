@@ -44,6 +44,8 @@ behavior controller::make_behavior() {
       link_to(worker);
       m_normal.insert(worker);
       send(m_widget, atom("max_cpu"), m_normal.size());
+      ++m_use_normal;
+      send_worker_config();
     },
     on(atom("opencl"), arg_match) >> [=](const actor& worker){
       aout(this) << "add GPU-based worker" << endl;

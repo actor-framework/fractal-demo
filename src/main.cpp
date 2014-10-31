@@ -231,20 +231,24 @@ int main(int argc, char** argv) {
     if (no_gui) {
       self->send(srvr, atom("SetSink"), self);
       uint32_t received_images = 0;
-      uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
+      uint32_t total_images = 778; // set properly in 'done' handler
       self->receive_while([&] { return received_images < total_images; }) (
-        on(atom("image"), arg_match) >> [&](const QByteArray& ba) {
+        on(atom("Image"), arg_match) >> [&](const QByteArray& ba) {
+           cout << "Received image\n";
            auto img = QImage::fromData(ba, image_format);
            std::ostringstream fname;
            fname.width(4);
            fname.fill('0');
            fname.setf(ios_base::right);
+           fname << received_images;
            fname << image_file_ending;
            QFile f{fname.str().c_str()};
            if (!f.open(QIODevice::WriteOnly)) {
              cerr << "could not open file: " << fname.str() << endl;
-           } else
+           } else {
+             cout << "writing image to " << fname.str() << endl;
              img.save(&f, image_format);
+           }
            ++received_images;
          },
         others() >> [&] {

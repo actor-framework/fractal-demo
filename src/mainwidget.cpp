@@ -24,7 +24,7 @@ MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
       },
       others() >> [=]{
         cerr << "[!!!] mainwidget received unexpected message: "
-             << to_string(self->last_dequeued())
+             << to_string(self->current_message())
              << endl;
       }
     };

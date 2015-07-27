@@ -36,7 +36,7 @@ ControllerWidget::ControllerWidget(QWidget* parent, Qt::WindowFlags f)
       on(atom("fps"), arg_match) >> [=](uint32_t fps) {
         aout(self) << "fps = " << fps << endl;
       },
-      [](const exit_msg& msg) {
+      [](const exit_msg&) {
         cout << "[!!!] master died" << endl;
       },
       on(atom("fraclist"), arg_match) >> [=](const map<string, atom_value>& fractal_types) {
@@ -44,7 +44,7 @@ ControllerWidget::ControllerWidget(QWidget* parent, Qt::WindowFlags f)
       },
       others() >> [=]{
           cout << "[!!!] controller ui received unexpected message: "
-               << to_string(self->last_dequeued())
+               << to_string(self->current_message())
                << endl;
       }
     };

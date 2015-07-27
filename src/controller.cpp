@@ -93,7 +93,7 @@ behavior controller::make_behavior() {
     },
     others() >> [=]{
       aout(this) << "[!!!] controller received unexpected message: '"
-           << to_string(last_dequeued())
+           << to_string(current_message())
            << "'." << endl;
     }
   };

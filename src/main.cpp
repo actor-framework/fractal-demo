@@ -7,7 +7,6 @@
 #include "caf/all.hpp"
 #include "caf/io/all.hpp"
 #include "caf/riac/all.hpp"
-#include "cppa/opt.hpp"
 
 #include "ui_main.h"
 #include "server.hpp"
@@ -19,6 +18,11 @@
 
 using namespace std;
 using namespace caf;
+
+using ivec = vector<int>;
+using fvec = vector<float>;
+using actor_set = set<actor>;
+using str_atom_map = map<string, atom_value>;
 
 std::vector<std::string> split(const std::string& str, char delim,
                                bool keep_empties = false) {
@@ -33,15 +37,19 @@ std::vector<std::string> split(const std::string& str, char delim,
   return result;
 }
 
+void announce_types() {
+  riac::announce_message_types();
+  announce<ivec>("ivec");
+  announce<fvec>("fvec");
+  announce<actor_set>("actor_set");
+  announce<str_atom_map>("str_atom_map");
+  announce(typeid(QByteArray), uniform_type_info_ptr{new q_byte_array_info});
+}
+
 int main(int argc, char** argv) {
+  announce_types();
   // announce some messaging types
   scoped_actor self;
-  riac::announce_message_types();
-  announce<vector<int>>();
-  announce<vector<float>>();
-  announce<set<actor>>();
-  announce<map<string, atom_value>>();
-  announce(typeid(QByteArray), uniform_type_info_ptr{new q_byte_array_info});
   // parse command line options
   string host;
   uint16_t port = 20283;
@@ -60,28 +68,38 @@ int main(int argc, char** argv) {
        {"tricorn", atom("tricorn")},
        {"burnship", atom("burnship")}};
   std::string fractal = "mandelbrot";
-  options_description desc;
-  bool args_valid = match_stream<string>(argv + 1, argv + argc)(
+  auto print_desc_and_exit = [](message::cli_res& res) {
+    cerr << res.error    << endl
+         << res.helptext << endl;
+    exit(-1);
+  };
+  auto res = message_builder(argv+1, argv + argc).extract_opts({
     // general options
-    on_opt0('s', "server", &desc, "run in server mode", "general")         >> set_flag(is_server),
-    on_opt1('p', "port", &desc, "set port (default: 20283)", "general")    >> rd_arg(port),
-    on_opt0('h', "help", &desc, "print this text", "general")              >> print_desc_and_exit(&desc),
-    on_opt1('d', "device", &desc, "set OpenCL device", "general")          >> rd_arg(opencl_device_id),
-    //on_opt1('n', "nexus-host", &desc, "set nexus IP for debugging", "general")  >> rd_arg(nexus_host),
-    //on_opt1('d', "nexus-port", &desc, "set nexus port", "general")              >> rd_arg(nexus_port),
+    {"server,s", "run in server mode"},
+    {"port,p", "set port (default: 20283)", port},
+    {"help,h", "print this help message"},
+    {"device,d", "set OpenCL device", opencl_device_id},
     // client options
-    on_opt1('H', "host", &desc, "set server host", "client")               >> rd_arg(host),
-    on_opt1('w', "worker", &desc, "number workers (default: 1)", "client") >> rd_arg(num_workers),
-    on_opt0('o', "opencl", &desc, "enable opencl", "client")               >> set_flag(with_opencl),
-    on_opt0('u', "publish", &desc, "don't connect to server; only publish worker(s) at given port", "client") >> set_flag(publish_workers),
+    {"host,H", "set server host", host},
+    {"worker,w", "number of workers (default: 1)", num_workers},
+    {"opencl,o", "enable opencl"},
+    {"publish,u",
+       "don't connect to server; only publish worker(s) at given port"},
     // server options
-    on_opt1('f', "fractal", &desc, "choose fractaltype (default: mandelbrot)", "server") >> rd_arg(fractal),
-    on_opt1('n', "node", &desc, "add given node (host:port notation) as workes", "server") >> rd_arg(nodes_list),
-    on_opt0('g', "no-gui", &desc, "save images to local directory", "server") >> set_flag(no_gui),
+    {"fractal,f", "choose fractaltype (default: mandelbrot)", fractal},
+    {"node,n", "add given node (host:port notation) as workers", nodes_list},
+    {"no-gui,g", "save images to local directory"},
     // controller
-    on_opt0('c', "controller", &desc, "start a controller ui", "controller") >> set_flag(is_controller));
-  if (!args_valid) {
-    print_desc_and_exit(&desc)();
+    {"controller,c", "start a controller ui"}
+  });
+  is_server   = res.opts.count("server") > 0;
+  with_opencl = res.opts.count("opencl") > 0;
+  publish_workers = res.opts.count("publish") > 0;
+  no_gui = res.opts.count("no-gui") > 0;
+  is_controller = res.opts.count("controller") > 0;
+  if ( res.opts.count("help") > 0 || !res.error.empty() ||
+      !res.remainder.empty()) {
+    print_desc_and_exit(res);
   }
   if (nexus_port && !nexus_host.empty()) {
     riac::init_probe(nexus_host, *nexus_port);
@@ -131,7 +149,7 @@ int main(int argc, char** argv) {
           send_workers(last_sender);
         },
         others() >> [&] {
-          cerr << "unexpected: " << to_string(self->last_dequeued()) << endl;
+          cerr << "unexpected: " << to_string(self->current_message()) << endl;
         }
       );
     } else {
@@ -159,7 +177,7 @@ int main(int argc, char** argv) {
         cerr << valid_fractal_pair.first << " ";
       }
       cerr << endl;
-      print_desc_and_exit(&desc)();
+      print_desc_and_exit(res);
     }
 
     auto fractal_type_pair = find_if(
@@ -208,7 +226,7 @@ int main(int argc, char** argv) {
       }
     }
     try {
-      io::publish(ctrl, port);
+      io::publish(srvr, port);
     } catch (std::exception& e) {
       cerr << "unable to publish actor: " << e.what() << endl;
       return -1;
@@ -249,7 +267,7 @@ int main(int argc, char** argv) {
          },
         others() >> [&] {
           cerr << "main:unexpected: "
-               << to_string(self->last_dequeued()) << endl;
+               << to_string(self->current_message()) << endl;
         }
       );
     } else {
@@ -288,6 +306,6 @@ int main(int argc, char** argv) {
     app.quitOnLastWindowClosed();
     app.exec();
   } else {
-    print_desc_and_exit(&desc)();
+    print_desc_and_exit(res);
   }
 }

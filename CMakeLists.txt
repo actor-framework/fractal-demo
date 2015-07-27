@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 2.6)
-project(fractal_cppa CXX)
+project(fractal_demo CXX)
 
-set(FRACTAL_CPPA_VERSION_MAJOR 0)
-set(FRACTAL_CPPA_VERSION_MINOR 1)
-set(FRACTAL_CPPA_VERSION_PATCH 0)
+set(FRACTAL_DEMO_VERSION_MAJOR 0)
+set(FRACTAL_DEMO_VERSION_MINOR 1)
+set(FRACTAL_DEMO_VERSION_PATCH 0)
 
 # qt variables
-set(FRACTAL_CPPA_HDRS)
-set(FRACTAL_CPPA_UIS main.ui controller.ui)
-set(FRACTAL_CPPA_RCS)
+set(FRACTAL_DEMO_HDRS)
+set(FRACTAL_DEMO_UIS main.ui controller.ui)
+set(FRACTAL_DEMO_RCS)
 
 # prohibit in-source builds
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -98,13 +98,13 @@ INCLUDE(${QT_USE_FILE})
 
 # this command will generate rules that will run rcc on all files from SAMPLE_RCS
 # in result SAMPLE_RC_SRCS variable will contain paths to files produced by rcc
-QT4_ADD_RESOURCES(FRACTAL_CPPA_RC_SRCS ${FRACTAL_CPPA_RCS} fractal.qrc)
+QT4_ADD_RESOURCES(FRACTAL_DEMO_RC_SRCS ${FRACTAL_DEMO_RCS} fractal.qrc)
 
 # this will run uic on .ui files:
-QT4_WRAP_UI(FRACTAL_CPPA_UI_HDRS ${FRACTAL_CPPA_UIS})
+QT4_WRAP_UI(FRACTAL_DEMO_UI_HDRS ${FRACTAL_DEMO_UIS})
 
 # and finally this will run moc:
-QT4_WRAP_CPP(FRACTAL_CPPA_MOC_SRCS ${FRACTAL_CPPA_HDRS}
+QT4_WRAP_CPP(FRACTAL_DEMO_MOC_SRCS ${FRACTAL_DEMO_HDRS}
                                    include/server.hpp
                                    include/imagelabel.h
                                    include/mainwidget.hpp
@@ -127,15 +127,13 @@ set(SOURCES
     src/server.cpp
     src/fractal_request_stream.cpp
     src/controller.cpp
-    ${FRACTAL_CPPA_MOC_SRCS}
-    ${FRACTAL_CPPA_RC_SRCS}
-    ${FRACTAL_CPPA_UI_HDRS})
+    ${FRACTAL_DEMO_MOC_SRCS}
+    ${FRACTAL_DEMO_RC_SRCS}
+    ${FRACTAL_DEMO_UI_HDRS})
 
 file(GLOB HEADERS "include/*.hpp")
 
-
-add_executable(fractal-cppa ${SOURCES} ${HEADERS})
-target_link_libraries(fractal-cppa ${CMAKE_DL_LIBS} ${LIBCAF_LIBRARIES} ${QT_LIBRARIES} ${OPENCL_LIBRARIES})
-add_dependencies(fractal-cppa all_examples)
-
+add_executable(fractal-demo ${SOURCES} ${HEADERS})
+target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${LIBCAF_LIBRARIES} ${QT_LIBRARIES} ${OPENCL_LIBRARIES})
+add_dependencies(fractal-demo all_examples)
 

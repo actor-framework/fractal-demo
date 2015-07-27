@@ -195,7 +195,7 @@ class clbroker : public event_based_actor {
       },
       others() >> [=]{
           aout(this) << "Unexpected message: '"
-               << to_string(self->last_dequeued()) << "'.\n";
+               << to_string(self->current_message()) << "'.\n";
       }
     };
   }
@@ -341,7 +341,7 @@ behavior client::make_behavior(){
     },
     others() >> [=] {
       aout(this) << "Client received unexpected message: "
-                 << to_string(last_dequeued()) << endl;
+                 << to_string(current_message()) << endl;
     }
   };
 }

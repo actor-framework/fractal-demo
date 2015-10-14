@@ -1,14 +1,26 @@
-cmake_minimum_required(VERSION 2.6)
-project(fractal_demo CXX)
+cmake_minimum_required(VERSION 2.8.11)
+project(fractal_demo C CXX)
 
 set(FRACTAL_DEMO_VERSION_MAJOR 0)
 set(FRACTAL_DEMO_VERSION_MINOR 1)
 set(FRACTAL_DEMO_VERSION_PATCH 0)
 
-# qt variables
-set(FRACTAL_DEMO_HDRS)
-set(FRACTAL_DEMO_UIS main.ui controller.ui)
-set(FRACTAL_DEMO_RCS)
+# Qt5 setup
+if(QT_CMAKE_DIR_HINT)
+  list(APPEND CMAKE_PREFIX_PATH "${QT_CMAKE_DIR_HINT}")
+endif(QT_CMAKE_DIR_HINT)
+
+# run MOC automatically if necessary
+set(CMAKE_AUTOMOC on)
+
+# MOC files are generated in the binary tree
+set(CMAKE_INCLUDE_CURRENT_DIR on)
+
+set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+
+find_package(OpenCL REQUIRED)
+find_package(Qt5Widgets REQUIRED)
+find_package(CAF COMPONENTS core io riac opencl REQUIRED)
 
 # prohibit in-source builds
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -16,8 +28,6 @@ if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
                         "./configure to choose a build directory and "
                         "initialize the build configuration.")
 endif ()
-
-set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 # check if the user provided CXXFLAGS on the command line
 if (CMAKE_CXX_FLAGS)
@@ -36,7 +46,7 @@ else ()
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 endif ()
 
-# check for g++ >= 4.7 or clang++ > = 3.2
+# check for g++ >= 4.8 or clang++ > = 3.2
 try_run(ProgramResult
         CompilationSucceeded
         ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src/get_compiler_version.cpp
@@ -44,10 +54,10 @@ try_run(ProgramResult
 if (NOT CompilationSucceeded OR NOT ProgramResult EQUAL 0)
   message(FATAL_ERROR "Cannot determine compiler version")
 elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  if (CompilerVersion VERSION_GREATER 4.6)
+  if (CompilerVersion VERSION_GREATER 4.7)
     message(STATUS "Found g++ version ${CompilerVersion}")
   else ()
-    message(FATAL_ERROR "g++ >= 4.7 required (found: ${CompilerVersion}.")
+    message(FATAL_ERROR "g++ >= 4.8 required (found: ${CompilerVersion}.")
   endif ()
 elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
   if (CompilerVersion VERSION_GREATER 3.1)
@@ -62,10 +72,6 @@ else ()
   message(FATAL_ERROR "Your C++ compiler does not support C++11.")
 endif ()
 
-if (CAF_LOG_LEVEL)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DCAF_LOG_LEVEL=${CAF_LOG_LEVEL}")
-endif(CAF_LOG_LEVEL)
-
 # set build type (evaluate ENABLE_DEBUG flag)
 if (ENABLE_DEBUG)
   set(CMAKE_BUILD_TYPE Debug)
@@ -74,66 +80,32 @@ else ()
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif ()
 
-find_package(Libcaf COMPONENTS core io riac REQUIRED)
+add_definitions("-DENABLE_OPENCL")
 
-# find opencl
-if (ENABLE_OPENCL)
-   find_package(OPENCL REQUIRED)
-   add_definitions("-DENABLE_OPENCL")
-   #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_OPENCL")
-endif (ENABLE_OPENCL)
-
-# by default only QtCore and QtGui modules are enabled
-# other modules must be enabled like this:
-#SET(QT_USE_QT3SUPPORT TRUE)
-#SET(QT_USE_QTXML TRUE)
-
-# this command finds Qt4 libraries and sets all required variables
-# note that it's Qt4, not QT4 or qt4
-FIND_PACKAGE(Qt4 REQUIRED)
-
-# add some useful macros and variables
-# (QT_USE_FILE is a variable defined by FIND_PACKAGE( Qt4 ) that contains a path to CMake script)
-INCLUDE(${QT_USE_FILE})
-
-# this command will generate rules that will run rcc on all files from SAMPLE_RCS
-# in result SAMPLE_RC_SRCS variable will contain paths to files produced by rcc
-QT4_ADD_RESOURCES(FRACTAL_DEMO_RC_SRCS ${FRACTAL_DEMO_RCS} fractal.qrc)
-
-# this will run uic on .ui files:
-QT4_WRAP_UI(FRACTAL_DEMO_UI_HDRS ${FRACTAL_DEMO_UIS})
-
-# and finally this will run moc:
-QT4_WRAP_CPP(FRACTAL_DEMO_MOC_SRCS ${FRACTAL_DEMO_HDRS}
-                                   include/server.hpp
-                                   include/imagelabel.h
-                                   include/mainwidget.hpp
-                                   include/controllerwidget.hpp)
+qt5_wrap_ui(FRACTAL_DEMO_UI_HDRS ${FRACTAL_DEMO_UIS})
 
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
 # from qmake)
-INCLUDE_DIRECTORIES(. include ${CMAKE_BINARY_DIR} ${LIBCAF_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS})
+include_directories(. include ${CMAKE_BINARY_DIR} ${CAF_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDES})
 
 set(SOURCES
     src/config.cpp
-    src/q_byte_array_info.cpp
     src/main.cpp
+    src/buffer.cpp
     src/imagelabel.cpp
     src/mainwidget.cpp
+    src/serialize_image.cpp
     src/controllerwidget.cpp
-    src/config_map.cpp
-    src/client.cpp
     src/server.cpp
+    src/calculate_fractal.cpp
+    src/atoms.cpp
     src/fractal_request_stream.cpp
-    src/controller.cpp
-    ${FRACTAL_DEMO_MOC_SRCS}
-    ${FRACTAL_DEMO_RC_SRCS}
-    ${FRACTAL_DEMO_UI_HDRS})
+    src/controller.cpp)
 
 file(GLOB HEADERS "include/*.hpp")
 
-add_executable(fractal-demo ${SOURCES} ${HEADERS})
-target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${LIBCAF_LIBRARIES} ${QT_LIBRARIES} ${OPENCL_LIBRARIES})
-add_dependencies(fractal-demo all_examples)
+add_executable(fractal-demo ${SOURCES} ${HEADERS} ${FRACTAL_DEMO_UI_HDRS})
+target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OPENCL_LIBRARIES})
+qt5_use_modules(fractal-demo Widgets)
 

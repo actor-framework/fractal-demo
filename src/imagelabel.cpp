@@ -5,7 +5,7 @@
 #include <QPixmap>
 
 #include "config.hpp"
-#include "imagelabel.h"
+#include "imagelabel.hpp"
 
 using namespace std;
 

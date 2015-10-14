@@ -5,7 +5,7 @@
 #include <set>
 #include <QWidget>
 
-#include "imagelabel.h"
+#include "imagelabel.hpp"
 
 #include "caf/all.hpp"
 #include "caf/io/all.hpp"
@@ -24,7 +24,7 @@ slots:
   explicit MainWidget(QWidget* parent = nullptr, Qt::WindowFlags f = 0);
 
   inline void set_server(const caf::actor& server_actor) {
-    m_server = server_actor;
+    server_ = server_actor;
   }
 
  protected:
@@ -44,9 +44,9 @@ slots:
     return member;
   }
 
-  caf::actor m_server;
-  caf::actor m_controller;
-  ImageLabel* m_imagelabel;
+  caf::actor server_;
+  caf::actor controller_;
+  ImageLabel* imagelabel_;
 };
 
 #endif // MAINWIDGET_HPP

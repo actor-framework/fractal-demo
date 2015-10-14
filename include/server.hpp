@@ -10,7 +10,6 @@
 
 #include "caf/all.hpp"
 
-#include "config_map.hpp"
 #include "fractal_request_stream.hpp"
 
 class server : public caf::event_based_actor {
@@ -22,7 +21,7 @@ class server : public caf::event_based_actor {
     caf::optional<job_id> assigned_job;
   };
 
-  server(config_map& config, caf::atom_value fractal_type);
+  server(caf::atom_value fractal_type);
 
   caf::behavior make_behavior() override;
 
@@ -35,31 +34,31 @@ class server : public caf::event_based_actor {
   // send the image from our cache to the sink
   void send_next_image();
   // keeps track of how many images we've drawn this second
-  size_t m_drawn_images;
+  size_t drawn_images_;
   // configured frames per second
-  uint32_t m_fps;
+  uint32_t fps_;
   // maximum number of images we are allowed to cache
-  size_t m_max_pending_images;
+  size_t max_pending_images_;
   // current position for drawing in the image stream
-  job_id m_draw_pos;
+  job_id draw_pos_;
   // ID for the next image to be computed
-  job_id m_next_id;
+  job_id next_id_;
   // number of iterations in the computation of our fractal
-  uint32_t m_iterations;
+  uint32_t iterations_;
   // determines what kind of fractal we are distributing
-  caf::atom_value m_fractal_type;
+  caf::atom_value fractal_type_;
   // some actor needs to draw our pretty images
-  caf::actor m_image_sink;
+  caf::actor image_sink_;
   // sorted according to the number of jobs a worker has
-  std::set<caf::actor> m_workers;
+  std::set<caf::actor> workers_;
   // currently assigned jobs
-  job_map m_assigned_jobs;
+  job_map assigned_jobs_;
   // orphaned jobs that no longer produce a result
-  std::set<job_id> m_dropped_jobs;
+  std::set<job_id> dropped_jobs_;
   // generator object for our jobs
-  fractal_request_stream m_stream;
+  fractal_request_stream stream_;
   // caches incoming images until we actually draw them
-  std::map<job_id, QByteArray> m_image_cache;
+  std::map<job_id, QByteArray> image_cache_;
 };
 
 #endif

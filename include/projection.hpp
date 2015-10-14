@@ -19,4 +19,3 @@ caf::optional<T> projection(const std::string& arg) {
 }
 
 #endif // PROJECTION_HPP
-

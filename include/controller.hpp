@@ -13,12 +13,12 @@ class controller : public caf::event_based_actor {
  private:
   void send_worker_config();
 
-  caf::actor m_server;
-  caf::actor m_widget;
-  std::uint32_t m_use_normal;
-  std::uint32_t m_use_opencl;
-  std::set<caf::actor> m_opencl;
-  std::set<caf::actor> m_normal;
+  caf::actor server_;
+  caf::actor widget_;
+  std::uint32_t use_normal_;
+  std::uint32_t use_opencl_;
+  std::set<caf::actor> opencl_;
+  std::set<caf::actor> normal_;
 };
 
 #endif // CONTROLLER_HPP

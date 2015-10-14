@@ -17,27 +17,16 @@
  * http://www.boost.org/LICENSE_1_0.txt.                                      *
  ******************************************************************************/
 
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#ifndef FRACTAL_DEMO_ATOMS_HPP
+#define FRACTAL_DEMO_ATOMS_HPP
 
-#include <tuple>
-#include <vector>
-#include <cstdint>
+#include "caf/atom.hpp"
 
-extern const char* image_format;
-extern const char* image_file_ending;
+using julia_atom = caf::atom_constant<caf::atom("julia")>;
+using tricorn_atom = caf::atom_constant<caf::atom("tricorn")>;
+using burnship_atom = caf::atom_constant<caf::atom("burnship")>;
+using mandelbrot_atom = caf::atom_constant<caf::atom("mandelbrot")>;
 
-extern const std::uint32_t default_width;
-extern const std::uint32_t default_height;
-extern const std::uint32_t default_iterations;
+bool valid_fractal_type(caf::atom_value value);
 
-extern const float default_min_real;
-extern const float default_max_real;
-extern const float default_min_imag;
-extern const float default_max_imag;
-extern const float default_zoom;
-
-using fractal_result = std::tuple<std::vector<uint16_t>, // fractal result
-                                  uint32_t>;             // image ID
-
-#endif // CONFIG_HPP
+#endif // FRACTAL_DEMO_ATOMS_HPP

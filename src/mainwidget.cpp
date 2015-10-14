@@ -16,13 +16,13 @@ using namespace caf;
 
 MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
     : super(parent, f),
-      m_imagelabel(nullptr) {
+      imagelabel_(nullptr) {
   set_message_handler ([=](local_actor* self) -> message_handler {
     return {
       on(atom("Image"), arg_match) >> [=](const QByteArray& ba) {
-        get(m_imagelabel, "imgLabel")->setPixmapFromByteArray(ba);
+        get(imagelabel_, "imgLabel")->setPixmapFromByteArray(ba);
       },
-      others() >> [=]{
+      others >> [=]{
         cerr << "[!!!] mainwidget received unexpected message: "
              << to_string(self->current_message())
              << endl;
@@ -31,11 +31,11 @@ MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
   });
 }
 
-void MainWidget::resizeEvent(QResizeEvent *) {
-    // if (m_server) {
+void MainWidget::resizeEvent(QResizeEvent*) {
+    // if (server_) {
     //     const QSize& size = event->size();
     //     send_as(as_actor(),
-    //             m_server,
+    //             server_,
     //             atom("resize"),
     //             static_cast<uint32_t>(size.width()),
     //             static_cast<uint32_t>(size.height()));

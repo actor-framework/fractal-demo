@@ -26,32 +26,32 @@ bool is_zoomed_in(const frstream* s, const fractal_request& fr) {
 }
 
 struct is_zoomed_in_to {
-  float_type m_min_width;
-  is_zoomed_in_to(const frstream* s, int zoom_step) {
+  float min_width_;
+  is_zoomed_in_to(const frstream* s, int zoostep_) {
     auto default_width = fabs(s->max_re() + (-1 * s->min_re()));
-    m_min_width = pow(s->zoom(), zoom_step) * default_width;
+    min_width_ = pow(s->zoom(), zoostep_) * default_width;
   }
   bool operator()(const frstream*, const fractal_request& fr) const {
-    return fabs(max_re(fr) + (-1 * min_re(fr))) <= m_min_width;
+    return fabs(max_re(fr) + (-1 * min_re(fr))) <= min_width_;
   }
 };
 
 struct is_zoomed_out_to {
-  float_type m_max_width;
-  is_zoomed_out_to(const frstream* s, int zoom_step) {
+  float max_width_;
+  is_zoomed_out_to(const frstream* s, int zoostep_) {
     auto default_width = (fabs(s->max_re() + (-1 * s->min_re())));
-    m_max_width = pow(s->zoom(), zoom_step) * default_width;
+    max_width_ = pow(s->zoom(), zoostep_) * default_width;
   }
   bool operator()(const frstream*, const fractal_request& fr) const {
     auto width  = fabs(max_re(fr) + (-1 * min_re(fr)));
-    return width >= m_max_width;
+    return width >= max_width_;
   }
 };
 
 struct is_equal_point {
-  float_type my_re;
-  float_type my_im;
-  is_equal_point(float_type re, float_type im) : my_re(re), my_im(im) { }
+  float my_re;
+  float my_im;
+  is_equal_point(float re, float im) : my_re(re), my_im(im) { }
   bool operator()(const frstream*, const fractal_request& fr) const {
     auto half_width  = fabs(max_re(fr) + (-1 * min_re(fr))) / 2;
     auto half_height = fabs(max_im(fr) + (-1 * min_im(fr))) / 2;
@@ -62,23 +62,23 @@ struct is_equal_point {
 };
 
 struct is_near {
-  float_type m_re;
-  float_type m_im;
-  float_type m_radius;
-  is_near(float_type re, float_type im, float_type r) : m_re(re), m_im(im), m_radius(r) { }
+  float re_;
+  float im_;
+  float radius_;
+  is_near(float re, float im, float r) : re_(re), im_(im), radius_(r) { }
   bool operator()(const frstream*, const fractal_request& fr) const {
     auto half_width  = fabs(max_re(fr) + (-1 * min_re(fr))) / 2;
     auto half_height = fabs(max_im(fr) + (-1 * min_im(fr))) / 2;
     auto re = min_re(fr) + half_width;
     auto im = min_im(fr) + half_height;
-    return fabs(m_re - re) < m_radius && fabs(m_im-im) < m_radius;
+    return fabs(re_ - re) < radius_ && fabs(im_-im) < radius_;
   }
 };
 
 // utility function
 inline void set_fr(fractal_request& fr,
-                   float_type re, float_type half_width,
-                   float_type im, float_type half_height) {
+                   float re, float half_width,
+                   float im, float half_height) {
   min_re(fr) = re - half_width;
   max_re(fr) = re + half_width;
   min_im(fr) = im - half_height;
@@ -95,7 +95,7 @@ void reset_op(const frstream* s, fractal_request& fr) {
   set_fr(fr, 0, half_width, 0, half_height);
 }
 
-void zoom_in_op(const frstream* s, fractal_request& fr) {
+void zooin_op_(const frstream* s, fractal_request& fr) {
   auto half_width  = fabs(max_re(fr) + (-1 * min_re(fr))) / 2;
   auto half_height = fabs(max_im(fr) + (-1  *min_im(fr))) / 2;
   auto re = min_re(fr) + half_width;
@@ -103,7 +103,7 @@ void zoom_in_op(const frstream* s, fractal_request& fr) {
   set_fr(fr, re, half_width * s->zoom(), im, half_height * s->zoom());
 }
 
-void zoom_out_op(const frstream* s, fractal_request& fr) {
+void zooout_op_(const frstream* s, fractal_request& fr) {
   auto half_width  = fabs(max_re(fr) + (-1 * min_re(fr))) / 2;
   auto half_height = fabs(max_im(fr) + (-1 * min_im(fr))) / 2;
   auto re = min_re(fr) + half_width;
@@ -113,36 +113,36 @@ void zoom_out_op(const frstream* s, fractal_request& fr) {
 }
 
 struct move_line_op {
-  float_type m_to_re;
-  float_type m_to_im;
-  float_type m_move_re;
-  float_type m_move_im;
-  float_type m_move_dist;
-  move_line_op(float_type from_re, float_type from_im,
-               float_type to_re, float_type to_im)
-      : m_to_re(to_re),
-        m_to_im(to_im) {
-    m_move_re = (to_re - from_re) / 5;
-    m_move_im = (to_im - from_im) / 5;
-    m_move_dist = sqrt(pow(m_move_re, 2) + pow(m_move_im, 2));
+  float to_re_;
+  float to_im_;
+  float move_re_;
+  float move_im_;
+  float move_dist_;
+  move_line_op(float frore_, float froim_,
+               float to_re, float to_im)
+      : to_re_(to_re),
+        to_im_(to_im) {
+    move_re_ = (to_re - frore_) / 5;
+    move_im_ = (to_im - froim_) / 5;
+    move_dist_ = sqrt(pow(move_re_, 2) + pow(move_im_, 2));
   }
   void operator()(const frstream*, fractal_request& fr) const {
     auto half_width  = fabs(max_re(fr) + (-1 * min_re(fr))) / 2;
     auto half_height = fabs(max_im(fr) + (-1 * min_im(fr))) / 2;
     auto current_re = min_re(fr) + half_width;
     auto current_im = min_im(fr) + half_height;
-    auto dist = sqrt(pow(m_to_re - current_re, 2) +
-                     pow(m_to_im - current_im, 2));
-    if (dist <= m_move_dist) {
-      current_re = m_to_re;
-      current_im = m_to_im;
+    auto dist = sqrt(pow(to_re_ - current_re, 2) +
+                     pow(to_im_ - current_im, 2));
+    if (dist <= move_dist_) {
+      current_re = to_re_;
+      current_im = to_im_;
     }
     else {
-      auto change_x = (m_to_re - current_re);
-      auto change_y = (m_to_im - current_im);
+      auto change_x = (to_re_ - current_re);
+      auto change_y = (to_im_ - current_im);
       auto change_length = sqrt(pow(change_x, 2) + pow(change_y, 2));
-      change_x = (change_x / change_length) * m_move_dist;
-      change_y = (change_y / change_length) * m_move_dist;
+      change_x = (change_x / change_length) * move_dist_;
+      change_y = (change_y / change_length) * move_dist_;
       current_re += change_x;
       current_im += change_y;
     }
@@ -150,73 +150,73 @@ struct move_line_op {
   }
 };
 
-struct move_line_zoom_in_op {
-  move_line_op m_move_line;
-  move_line_zoom_in_op(float_type from_re, float_type from_im,
-                       float_type to_re, float_type to_im)
-      : m_move_line(from_re, from_im, to_re, to_im) {
+struct move_line_zooin_op_ {
+  move_line_op move_line_;
+  move_line_zooin_op_(float frore_, float froim_,
+                       float to_re, float to_im)
+      : move_line_(frore_, froim_, to_re, to_im) {
     // nop
   }
   void operator()(const frstream* s, fractal_request& fr) const {
-    m_move_line(s, fr);
-    if (not is_zoomed_in(s, fr)) zoom_in_op(s, fr);
+    move_line_(s, fr);
+    if (not is_zoomed_in(s, fr)) zooin_op_(s, fr);
   }
 };
 
-struct move_line_zoom_out {
-  move_line_op m_move_line;
-  move_line_zoom_out(float_type from_re, float_type from_im,
-                     float_type to_re, float_type to_im)
-      : m_move_line(from_re, from_im, to_re, to_im) {
+struct move_line_zooout_ {
+  move_line_op move_line_;
+  move_line_zooout_(float frore_, float froim_,
+                     float to_re, float to_im)
+      : move_line_(frore_, froim_, to_re, to_im) {
     // nop
   }
   void operator()(const frstream* s, fractal_request& fr) const {
-      m_move_line(s, fr);
-      if (not is_zoomed_in(s, fr)) zoom_in_op(s, fr);
+      move_line_(s, fr);
+      if (not is_zoomed_in(s, fr)) zooin_op_(s, fr);
   }
 };
 
 } // namespace <anonymous>
 
-void fractal_request_stream::add_start_move(float_type x, float_type y,
-                                            float_type new_x, float_type new_y,
+void fractal_request_stream::add_start_move(float x, float y,
+                                            float new_x, float new_y,
                                             int max_zoom) {
-  m_operations.emplace_back(zoom_in_op, is_zoomed_in_to{this, max_zoom});
-  m_operations.emplace_back(move_line_zoom_in_op{x, y, new_x, new_y},
+  operations_.emplace_back(zooin_op_, is_zoomed_in_to{this, max_zoom});
+  operations_.emplace_back(move_line_zooin_op_{x, y, new_x, new_y},
                             is_equal_point{new_x, new_y});
 }
 
-void fractal_request_stream::add_move_from_to(float_type x, float_type y,
-                                              float_type new_x,float_type new_y,
+void fractal_request_stream::add_move_froto_(float x, float y,
+                                              float new_x,float new_y,
                                               int max_zoom) {
-  float_type mid_x = x + ((new_x - x) / 2);
-  float_type mid_y = y + ((new_y - y) / 2);
-  m_operations.emplace_back(zoom_in_op, is_zoomed_in_to{this, max_zoom});
-  m_operations.emplace_back(move_line_zoom_in_op{mid_x, mid_y, new_x, new_y},
+  float mid_x = x + ((new_x - x) / 2);
+  float mid_y = y + ((new_y - y) / 2);
+  operations_.emplace_back(zooin_op_, is_zoomed_in_to{this, max_zoom});
+  operations_.emplace_back(move_line_zooin_op_{mid_x, mid_y, new_x, new_y},
                             is_equal_point{new_x, new_y});
-  m_operations.emplace_back(move_line_zoom_out{x, y, mid_x, mid_y},
+  operations_.emplace_back(move_line_zooout_{x, y, mid_x, mid_y},
                             is_equal_point{mid_x, mid_y});
-  m_operations.emplace_back(zoom_out_op, is_zoomed_out_to{this, 5});
+  operations_.emplace_back(zooout_op_, is_zoomed_out_to{this, 5});
 }
 
-void fractal_request_stream::add_end_move(float_type x, float_type y,
-                                          float_type new_x, float_type new_y) {
-    m_operations.emplace_back(move_line_zoom_out{x, y, new_x, new_y},
+void fractal_request_stream::add_end_move(float x, float y,
+                                          float new_x, float new_y) {
+    operations_.emplace_back(move_line_zooout_{x, y, new_x, new_y},
                               is_equal_point{new_x, new_y});
-    m_operations.emplace_back(zoom_out_op, is_zoomed_out_to{this, 5});
+    operations_.emplace_back(zooout_op_, is_zoomed_out_to{this, 5});
 }
 
-void fractal_request_stream::add_chain(std::vector<std::pair<float_type,float_type>>& chain, int zoom) {
+void fractal_request_stream::add_chain(std::vector<std::pair<float,float>>& chain, int zoom) {
   if (chain.size() > 0) {
     std::reverse(std::begin(chain), std::end(chain));
-    float_type start_end_x = 0;
-    float_type start_end_y = 0;
+    float start_end_x = 0;
+    float start_end_y = 0;
     auto first = chain.begin();
     auto second = chain.begin() + 1;
     auto end = chain.end();
     add_end_move(first->first, first->second, start_end_x, start_end_y);
     for (; second != end; ++first, ++second) {
-      add_move_from_to(second->first, second->second, first->first, first->second, zoom);
+      add_move_froto_(second->first, second->second, first->first, first->second, zoom);
     }
     add_start_move(start_end_x, start_end_y, first->first, first->second, zoom);
   }
@@ -224,7 +224,7 @@ void fractal_request_stream::add_chain(std::vector<std::pair<float_type,float_ty
 
 // Burning Ship
 void fractal_request_stream::loop_stack_burning_ship() {
-  std::vector<std::pair<float_type,float_type>> chain;
+  std::vector<std::pair<float,float>> chain;
   // coords are visited top down
   /* ######################### */
   chain.emplace_back(1.941, 0.004);       // tiny ship
@@ -244,13 +244,12 @@ void fractal_request_stream::loop_stack_burning_ship() {
   /* ######################### */
   add_chain(chain, 80);
   //add_chain(chain, 100);
-  m_operations.emplace_back(reset_op, do_once);
+  operations_.emplace_back(reset_op, do_once);
 }
-
 
 // Mandelbrot
 void fractal_request_stream::loop_stack_mandelbrot() {
-  std::vector<std::pair<float_type,float_type>> chain;
+  std::vector<std::pair<float,float>> chain;
   // coords are visited top down
   chain.emplace_back(0.28692299709,-0.01218247138);  // geode
   chain.emplace_back(0.001643721971153,          0.822467633298876); // buzzsaw
@@ -277,44 +276,45 @@ void fractal_request_stream::loop_stack_mandelbrot() {
   /* ######################### */
   add_chain(chain, 80);
   //add_chain(chain, 100);
-  m_operations.emplace_back(reset_op, do_once);
+  operations_.emplace_back(reset_op, do_once);
 }
-
 
 void fractal_request_stream::resize(std::uint32_t new_width,
                                     std::uint32_t new_height) {
-  float_type nw = new_width;
-  float_type nh = new_height;
-  width(m_freq) = nw;
-  height(m_freq) = nh;
-  ::max_im(m_freq) = ::min_im(m_freq)
-                   + (::max_re(m_freq) - ::min_re(m_freq)) * nh / nw;
+  float nw = new_width;
+  float nh = new_height;
+  width(freq_) = nw;
+  height(freq_) = nh;
+  ::max_im(freq_) = ::min_im(freq_)
+                   + (::max_re(freq_) - ::min_re(freq_)) * nh / nw;
 }
 
 void fractal_request_stream::init(std::uint32_t width,
                                   std::uint32_t height,
-                                  float_type min_re,
-                                  float_type max_re,
-                                  float_type min_im,
-                                  float_type max_im,
-                                  float_type zoom) {
-  ::width(m_freq) = width;
-  ::height(m_freq) = height;
-  m_width  = width;
-  m_height = height;
-  m_min_re = min_re;
-  m_max_re = max_re;
-  m_min_im = min_im;
-  m_max_im = max_im;
-  m_zoom   = zoom;
+                                  float min_re,
+                                  float max_re,
+                                  float min_im,
+                                  float max_im,
+                                  float zoom) {
+  ::width(freq_) = width;
+  ::height(freq_) = height;
+  width_  = width;
+  height_ = height;
+  min_re_ = min_re;
+  max_re_ = max_re;
+  min_im_ = min_im;
+  max_im_ = max_im;
+  zoom_   = zoom;
   loop_stack_mandelbrot();
 }
 
-bool fractal_request_stream::next() {
-  if (!at_end()) {
-    m_operations.back().first(this, m_freq);
-    if (m_operations.back().second(this, m_freq)) m_operations.pop_back();
-    return true;
-  }
-  return false;
+const fractal_request& fractal_request_stream::next() {
+  operations_.back().first(this, freq_);
+  if (operations_.back().second(this, freq_))
+    operations_.pop_back();
+  return freq_;
+}
+
+bool fractal_request_stream::at_end() const {
+  return operations_.empty();
 }

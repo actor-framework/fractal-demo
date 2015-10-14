@@ -8,53 +8,69 @@
 #include "fractal_request.hpp"
 
 class fractal_request_stream {
+public:
   using predicate = std::function<bool (const fractal_request_stream*,
                                         const fractal_request&)>;
+
   using operation = std::function<void (const fractal_request_stream*,
                                         fractal_request&)>;
- public:
-  inline float_type min_re() const { return m_min_re; }
-  inline float_type max_re() const { return m_max_re; }
-  inline float_type min_im() const { return m_min_im; }
-  inline float_type max_im() const { return m_max_im; }
-  inline float_type zoom() const { return m_zoom; }
 
-  inline const fractal_request& request() const { return m_freq; }
+  inline float min_re() const {
+    return min_re_;
+  }
+
+  inline float max_re() const {
+    return max_re_;
+  }
+
+  inline float min_im() const {
+    return min_im_;
+  }
+
+  inline float max_im() const {
+    return max_im_;
+  }
+
+  inline float zoom() const {
+    return zoom_;
+  }
 
   void resize(std::uint32_t width, std::uint32_t height);
 
-  void init(std::uint32_t width, std::uint32_t height, float_type min_re,
-            float_type max_re, float_type min_im, float_type max_im,
-            float_type zoom);
+  void init(std::uint32_t width, std::uint32_t height, float min_re,
+            float max_re, float min_im, float max_im,
+            float zoom);
 
-  // false if stream is done
-  bool next();
+  const fractal_request& next();
 
-  inline bool at_end() const { return m_operations.empty(); }
+  bool at_end() const;
 
   void loop_stack_mandelbrot();
+
   void loop_stack_burning_ship();
 
  private:
-  std::uint32_t m_width;
-  std::uint32_t m_height;
-  float_type m_min_re;
-  float_type m_max_re;
-  float_type m_min_im;
-  float_type m_max_im;
-  float_type m_zoom;
-  fractal_request m_freq;
+  void add_start_move(float frox_, float froy_, float to_x,
+                      float to_y, int max_zoom);
 
-  std::vector<std::pair<operation, predicate>> m_operations;
+  void add_move_froto_(float frox_, float froy_, float to_x,
+                        float to_y, int max_zoom);
 
-  void add_start_move(float_type from_x, float_type from_y, float_type to_x,
-                      float_type to_y, int max_zoom);
-  void add_move_from_to(float_type from_x, float_type from_y, float_type to_x,
-                        float_type to_y, int max_zoom);
-  void add_end_move(float_type from_x, float_type from_y, float_type to_x,
-                    float_type to_y);
-  void add_chain(std::vector<std::pair<float_type, float_type>>& chain,
+  void add_end_move(float frox_, float froy_, float to_x,
+                    float to_y);
+
+  void add_chain(std::vector<std::pair<float, float>>& chain,
                  int zoom);
+
+  std::uint32_t width_;
+  std::uint32_t height_;
+  float min_re_;
+  float max_re_;
+  float min_im_;
+  float max_im_;
+  float zoom_;
+  fractal_request freq_;
+  std::vector<std::pair<operation, predicate>> operations_;
 };
 
 #endif // FRACTAL_REQUEST_STREAM_HPP

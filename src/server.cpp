@@ -15,9 +15,7 @@
 
 #include "ui_main.h"
 #include "server.hpp"
-#include "config_map.hpp"
 #include "mainwidget.hpp"
-#include "q_byte_array_info.hpp"
 
 using std::endl;
 using namespace caf;
@@ -30,108 +28,107 @@ std::chrono::milliseconds tick_time(uint32_t fps) {
 }
 
 struct ini_helper {
-  config_map& ini;
-  ini_helper(config_map& cmap) : ini(cmap) { }
   template<typename T>
   T operator()(const char* field, const T& default_value) {
-    return ini.get_or_else("fractals", field, default_value);
+    //return ini.get_or_else("fractals", field, default_value);
+    return default_value;
   }
 };
 
-server::server(config_map& ini, atom_value fractal_type)
-    : m_drawn_images(0),
-      m_draw_pos(0),
-      m_next_id(0),
-      m_fractal_type(fractal_type) {
-  ini_helper rd{ini};
-  m_stream.init(rd("width",    default_width),
-                rd("height",   default_height),
-                rd("min_real", default_min_real),
-                rd("max_real", default_max_real),
-                rd("min_imag", default_min_imag),
-                rd("max_imag", default_max_imag),
-                rd("zoom",     default_zoom));
-  m_iterations = rd("iterations", default_iterations);
+server::server(atom_value fractal_type)
+    : drawn_images_(0),
+      draw_pos_(0),
+      next_id_(0),
+      fractal_type_(fractal_type) {
+  ini_helper rd;
+  stream_.init(rd("width",    default_width),
+               rd("height",   default_height),
+               rd("min_real", default_min_real),
+               rd("max_real", default_max_real),
+               rd("min_imag", default_min_imag),
+               rd("max_imag", default_max_imag),
+               rd("zoom",     default_zoom));
+  iterations_ = rd("iterations", default_iterations);
   // todo: read from config and make configurable at runtime
-  m_fps = 2;
-  m_max_pending_images = 20;
+  fps_ = 2;
+  max_pending_images_ = 20;
 }
 
 behavior server::make_behavior() {
   aout(this) << "server is " << to_string(actor{this}) << endl;
   trap_exit(true);
-  delayed_send(this, tick_time(m_fps), atom("Tick"), uint32_t{2});
+  delayed_send(this, tick_time(fps_), atom("Tick"), uint32_t{2});
   delayed_send(this, std::chrono::seconds(1), atom("Tock"));
   return {
     on(atom("Result"), arg_match) >> [=](uint32_t id, const QByteArray& ba) {
       aout(this) << "received image nr. " << id << endl;
-      m_image_cache.insert(std::make_pair(id, ba));
-      auto i = m_assigned_jobs.find(id);
-      if (i == m_assigned_jobs.end()) {
+      image_cache_.insert(std::make_pair(id, ba));
+      auto i = assigned_jobs_.find(id);
+      if (i == assigned_jobs_.end()) {
         return;
       }
       auto worker = i->second;
-      m_assigned_jobs.erase(i);
-      if (m_image_cache.size() < m_max_pending_images) {
+      assigned_jobs_.erase(i);
+      if (image_cache_.size() < max_pending_images_) {
         send_next_job(worker);
       }
     },
     on(atom("Tick"), arg_match) >> [=](uint32_t num) {
-      if (num < m_fps) {
+      if (num < fps_) {
         // the last Tick is followed by a Tock
-        delayed_send(this, tick_time(m_fps), atom("Tick"), num + 1);
+        delayed_send(this, tick_time(fps_), atom("Tick"), num + 1);
       }
       send_next_image();
     },
     on(atom("Tock")) >> [=] {
-      delayed_send(this, tick_time(m_fps), atom("Tick"), uint32_t{2});
+      delayed_send(this, tick_time(fps_), atom("Tick"), uint32_t{2});
       delayed_send(this, std::chrono::seconds(1), atom("Tock"));
-      aout(this) << m_drawn_images << " FPS" << endl;
-      m_drawn_images = 0;
+      aout(this) << drawn_images_ << " FPS" << endl;
+      drawn_images_ = 0;
       send_next_image();
     },
     on(atom("SetWorkers"), arg_match) >> [=](std::set<actor>& workers) {
       aout(this) << "new set of " << workers.size() << " worker" << endl;
-      m_workers.swap(workers);
-      while (m_image_cache.size() < m_max_pending_images) {
+      workers_.swap(workers);
+      while (image_cache_.size() < max_pending_images_) {
         if (!assign_job()) {
           return;
         }
       }
     },
     on(atom("changefrac"), arg_match) >> [&](atom_value new_frac_option) {
-      m_fractal_type = new_frac_option;
+      fractal_type_ = new_frac_option;
       // load correct stack for changed fractaltype
-      if(m_fractal_type  == atom("mandel")) {
-          m_stream.loop_stack_mandelbrot();
-      } else if(m_fractal_type == atom("burnship")) {
-          m_stream.loop_stack_burning_ship();
-      } else if(m_fractal_type == atom("tricorn")) {
+      if(fractal_type_  == atom("mandel")) {
+          stream_.loop_stack_mandelbrot();
+      } else if(fractal_type_ == atom("burnship")) {
+          stream_.loop_stack_burning_ship();
+      } else if(fractal_type_ == atom("tricorn")) {
           // tricorn needs his own stream
-          m_stream.loop_stack_mandelbrot();
+          stream_.loop_stack_mandelbrot();
       } else {
           aout(this) << "[server] couldn't get " <<
                         "coordination for changed fractal." << endl;
       }
     },
     on(atom("resize"), arg_match) >> [=](uint32_t width, uint32_t height) {
-      m_stream.resize(width, height);
+      stream_.resize(width, height);
     },
     [=](const exit_msg& msg) {
       auto worker = actor_cast<actor>(msg.source);
-      auto i = m_workers.find(worker);
-      if (i != m_workers.end()) {
+      auto i = workers_.find(worker);
+      if (i != workers_.end()) {
         aout(this) << "a worker disconnected" << endl;
-        for (auto i = m_assigned_jobs.begin(); i != m_assigned_jobs.end(); ++i) {
+        for (auto i = assigned_jobs_.begin(); i != assigned_jobs_.end(); ++i) {
           if (i->second == worker) {
             // drop everything up until lost job id
-            m_draw_pos = i->first + 1;
-            auto j = m_image_cache.begin();
-            while (j != m_image_cache.end() && j->first < m_draw_pos) {
-              m_image_cache.erase(j);
-              j = m_image_cache.begin();
+            draw_pos_ = i->first + 1;
+            auto j = image_cache_.begin();
+            while (j != image_cache_.end() && j->first < draw_pos_) {
+              image_cache_.erase(j);
+              j = image_cache_.begin();
             }
-            m_assigned_jobs.erase(i);
+            assigned_jobs_.erase(i);
             return;
           }
         }
@@ -141,9 +138,9 @@ behavior server::make_behavior() {
       }
     },
     on(atom("SetSink"), arg_match) >> [=](const actor& sink) {
-      m_image_sink = sink;
+      image_sink_ = sink;
     },
-    others() >> [=] {
+    others >> [=] {
       aout(this) << "[!!!] server received unexpected message: '"
                  << to_string(current_message())
                  << "'." << endl;
@@ -152,15 +149,15 @@ behavior server::make_behavior() {
 }
 
 void server::send_next_job(const actor& worker) {
-  if (!m_stream.next()) {
+  if (stream_.at_end()) {
     // stream endlessly
-    if (m_fractal_type == atom("mandel")) {
-        m_stream.loop_stack_mandelbrot();
-    } else if (m_fractal_type == atom("burnship")) {
-        m_stream.loop_stack_burning_ship();
-    } else if (m_fractal_type == atom("tricorn")) {
-        //tricorn needs his own stream
-        m_stream.loop_stack_mandelbrot();
+    if (fractal_type_ == atom("mandel")) {
+      stream_.loop_stack_mandelbrot();
+    } else if (fractal_type_ == atom("burnship")) {
+      stream_.loop_stack_burning_ship();
+    } else if (fractal_type_ == atom("tricorn")) {
+      // tricorn needs his own stream
+      stream_.loop_stack_mandelbrot();
     } else {
       aout(this) << "[server] Reached end of stream end and didn't "
                  << "found a new one ... quit" << endl;
@@ -168,43 +165,43 @@ void server::send_next_job(const actor& worker) {
       return;
     }
   }
-  auto next_id = m_next_id++;
-  auto& fr = m_stream.request();
+  auto next_id = next_id_++;
+  auto& fr = stream_.next();
   send(worker,
-       m_fractal_type,
+       fractal_type_,
        this,
        width(fr),
        height(fr),
-       m_iterations,
+       iterations_,
        next_id,
        min_re(fr),
        max_re(fr),
        min_im(fr),
        max_im(fr));
-  m_assigned_jobs[next_id] = worker;
+  assigned_jobs_[next_id] = worker;
 }
 
 void server::send_next_image() {
-  auto i = m_image_cache.find(m_draw_pos);
-  if (i != m_image_cache.end()) {
-    send(m_image_sink, atom("Image"), i->second);
-    m_image_cache.erase(i);
-    ++m_draw_pos;
-    ++m_drawn_images;
+  auto i = image_cache_.find(draw_pos_);
+  if (i != image_cache_.end()) {
+    send(image_sink_, atom("Image"), i->second);
+    image_cache_.erase(i);
+    ++draw_pos_;
+    ++drawn_images_;
     assign_job(); // maybe we can assign a new job now
   }
 }
 
 bool server::assign_job() {
-  if (m_workers.size() <= m_assigned_jobs.size()) {
+  if (workers_.size() <= assigned_jobs_.size()) {
     return false;
   }
-  for (auto& w : m_workers) {
+  for (auto& w : workers_) {
     auto pred = [w](const job_map::value_type& kvp) {
       return kvp.second == w;
     };
-    auto last = m_assigned_jobs.end();
-    auto i = std::find_if(m_assigned_jobs.begin(), last, pred);
+    auto last = assigned_jobs_.end();
+    auto i = std::find_if(assigned_jobs_.begin(), last, pred);
     if (i == last) {
       // worker has no job assigned yet
       send_next_job(w);

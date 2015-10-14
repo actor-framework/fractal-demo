@@ -34,7 +34,8 @@ Usage: $0 [OPTION]... [VAR=VALUE]...
     --prefix=PREFIX             installation directory [/usr/local]
 
   Required Packages in Non-Standard Locations:
-    --with-libcaf=PATH         path to libcaf install root
+    --with-caf-root-dir=PATH    path to CAF install root
+    --with-qt-cmake-dir=PATH    path to Qt5 Cmake module path
 
   Influential Environment Variables (only on first invocation
   per build directory):
@@ -164,8 +165,11 @@ while [ $# -ne 0 ]; do
         --with-opencl)
             append_cache_entry ENABLE_OPENCL BOOL true
             ;;
-        --with-libcaf=*)
-            append_cache_entry CAF_ROOT PATH $optarg
+        --with-caf-root-dir=*)
+            append_cache_entry CAF_ROOT_DIR PATH $optarg
+            ;;
+        --with-qt-cmake-dir=*)
+            append_cache_entry QT_CMAKE_DIR_HINT PATH $optarg
             ;;
         --with-clang=*)
             clang=$optarg

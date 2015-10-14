@@ -8,10 +8,10 @@
 
 using fractal_request = std::tuple<std::uint32_t,    // 0: width,
                                    std::uint32_t,    // 1: height
-                                   float_type,       // 2: min real
-                                   float_type,       // 3: max real
-                                   float_type,       // 4: min img
-                                   float_type>;      // 5: max img
+                                   float,       // 2: min real
+                                   float,       // 3: max real
+                                   float,       // 4: min img
+                                   float>;      // 5: max img
 
 template <typename R>
 auto width(R& req) -> decltype(std::get<0>(req)) {

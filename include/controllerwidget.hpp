@@ -17,7 +17,7 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
  public:
   explicit ControllerWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
   inline void set_controller(const caf::actor& controller_actor) {
-    m_controller = controller_actor;
+    controller_ = controller_actor;
   }
   void initialize();
 
@@ -39,27 +39,27 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
   }
 
   inline QSlider* cpu_slider() {
-    return get(m_cpu_slider, "cpu_slider");
+    return get(cpu_slider_, "cpu_slider");
   }
 
   inline QSlider* gpu_slider() {
-    return get(m_gpu_slider, "gpu_slider");
+    return get(gpu_slider_, "gpu_slider");
   }
 
   inline QSlider* resolution_slider() {
-    return get(m_resolution_slider, "res_slider");
+    return get(resolution_slider_, "res_slider");
   }
 
   inline QComboBox* drop_down_fractal_type() {
-    return get(m_drop_down_fractal_type, "drop_down_fractal_type");
+    return get(drop_down_fractal_type_, "drop_down_fractal_type");
   }
 
   inline QLabel* res_current() {
-    return get(m_res_current, "res_current");
+    return get(res_current_, "res_current");
   }
 
   inline QLabel* time_current() {
-    return get(m_time_current, "time_current");
+    return get(time_current_, "time_current");
   }
 
   inline void set_cpu_max(size_t max) {
@@ -79,7 +79,7 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
   }
 
   inline void set_fractal_types(const std::map<std::string, caf::atom_value>& fractal_types) {
-    m_valid_fractal = fractal_types;
+    valid_fractal_ = fractal_types;
     while (drop_down_fractal_type() == nullptr)
       ; // wait for the UI
     for (auto& fractal : fractal_types) {
@@ -89,20 +89,20 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
 
   typedef caf::mixin::actor_widget<QWidget> super;
 
-  caf::actor m_controller;
+  caf::actor controller_;
 
-  QSlider* m_cpu_slider;
-  QSlider* m_gpu_slider;
-  QSlider* m_resolution_slider;
+  QSlider* cpu_slider_;
+  QSlider* gpu_slider_;
+  QSlider* resolution_slider_;
 
-  QLabel* m_res_current;
-  QLabel* m_time_current;
+  QLabel* res_current_;
+  QLabel* time_current_;
 
-  QComboBox* m_drop_down_fractal_type;
+  QComboBox* drop_down_fractal_type_;
 
-  std::vector<QString> m_res_strings;
-  std::vector<std::pair<std::uint32_t, std::uint32_t>> m_resolutions;
-  std::map<std::string, caf::atom_value> m_valid_fractal;
+  std::vector<QString> res_strings_;
+  std::vector<std::pair<std::uint32_t, std::uint32_t>> resolutions_;
+  std::map<std::string, caf::atom_value> valid_fractal_;
 };
 
 #endif // CONTROLLERWIDGET_HPP

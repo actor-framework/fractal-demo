@@ -82,7 +82,7 @@ endif ()
 
 add_definitions("-DENABLE_OPENCL")
 
-qt5_wrap_ui(FRACTAL_DEMO_UI_HDRS ${FRACTAL_DEMO_UIS})
+qt5_wrap_ui(UI_HDRS controller.ui main.ui)
 
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
@@ -105,7 +105,7 @@ set(SOURCES
 
 file(GLOB HEADERS "include/*.hpp")
 
-add_executable(fractal-demo ${SOURCES} ${HEADERS} ${FRACTAL_DEMO_UI_HDRS})
+add_executable(fractal-demo ${SOURCES} ${HEADERS} ${UI_HDRS})
 target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OPENCL_LIBRARIES})
 qt5_use_modules(fractal-demo Widgets)
 

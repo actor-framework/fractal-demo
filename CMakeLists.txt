@@ -39,7 +39,7 @@ if (CXXFLAGS_PROVIDED)
   set(CMAKE_CXX_FLAGS_RELEASE        "")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "")
 else ()
-  set(CMAKE_CXX_FLAGS                "-std=c++11 -Wextra -Wall -pedantic")
+  set(CMAKE_CXX_FLAGS                "-std=c++14 -Wextra -Wall -pedantic")
   set(CMAKE_CXX_FLAGS_DEBUG          "-O0 -g")
   set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
   set(CMAKE_CXX_FLAGS_RELEASE        "-O4")
@@ -90,6 +90,7 @@ qt5_wrap_ui(UI_HDRS controller.ui main.ui)
 include_directories(. include ${CMAKE_BINARY_DIR} ${CAF_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDES})
 
 set(SOURCES
+    src/maybe.cpp
     src/config.cpp
     src/main.cpp
     src/buffer.cpp
@@ -103,7 +104,7 @@ set(SOURCES
     src/fractal_request_stream.cpp
     src/controller.cpp)
 
-file(GLOB HEADERS "include/*.hpp")
+file(GLOB HEADERS "include/*.hpp" "caf/*.hpp")
 
 add_executable(fractal-demo ${SOURCES} ${HEADERS} ${UI_HDRS})
 target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OPENCL_LIBRARIES})

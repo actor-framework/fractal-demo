@@ -8,11 +8,13 @@
 #include "caf/io/all.hpp"
 #include "caf/riac/all.hpp"
 
+#include "caf/experimental/whereis.hpp"
 #include "caf/experimental/announce_actor_type.hpp"
 
 #include "atoms.hpp"
 #include "ui_main.h"
 #include "server.hpp"
+#include "utility.hpp"
 #include "controller.hpp"
 #include "mainwidget.hpp"
 #include "projection.hpp"
@@ -20,14 +22,13 @@
 
 #include "ui_controller.h"
 
-using namespace std;
 using namespace caf;
 using namespace caf::experimental;
 
-using ivec = vector<int>;
-using fvec = vector<float>;
-using actor_set = set<actor>;
-using str_atom_map = map<string, atom_value>;
+// from utility, allows "explode(...) | map(...) | ..."
+using namespace vector_operators;
+
+using std::endl;
 
 spawn_result make_gpu_worker(message args) {
   spawn_result result;
@@ -45,7 +46,7 @@ struct cpu_worker_state {
   const char* name = "CPU worker";
 };
 
-behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
+behavior cpu_worker(stateful_actor<cpu_worker_state>*,
                     atom_value fractal) {
   if (! valid_fractal_type(fractal))
     return {};
@@ -62,36 +63,97 @@ behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
   };
 }
 
-int passive_mode() {
-  std::cout << "type 'quit' to shut process down" << endl;
-  std::string line;
-  for (;;) {
-    std::getline(std::cin, line);
-    if (line == "quit")
-      return 0;
+template <class F, class Atom, class... Ts>
+bool x_in_range(uint16_t min_port, uint16_t max_port,
+                F fun, Atom op, const Ts&... xs) {
+  scoped_actor self;
+  auto mm = io::get_middleman_actor();
+  auto success = false;
+  for (uint16_t port = min_port; port < max_port && ! success; ++port) {
+    success = true;
+    self->sync_send(mm, op, port, xs...).await(
+      fun,
+      [&](error_atom, const std::string&) {
+        success = false;
+      }
+    );
   }
+  return success;
 }
 
-std::pair<node_id, actor_addr> connect_node(const std::string& node) {
+bool open_port_in_range(uint16_t min_port, uint16_t max_port) {
+  auto f = [](ok_atom, uint16_t actual_port) {
+    std::cout << "running in passive mode on port " << actual_port << endl;
+  };
+  return x_in_range(min_port, max_port, f, open_atom::value, "", false);
+}
+
+bool publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
+  auto f = [](ok_atom, uint16_t actual_port) {
+    std::cout << "running in passive mode on port " << actual_port << endl;
+  };
+  return x_in_range(min_port, max_port, f, publish_atom::value,
+                    whom.address(), std::set<std::string>{}, "", false);
+}
+
+int passive_mode(uint16_t min_port, uint16_t max_port) {
+  auto cs = whereis(config_server_atom::value);
+  anon_send(cs, put_atom::value, "fractal-demo.hardware-concurrency",
+            make_message(static_cast<int64_t>(std::thread::hardware_concurrency())));
+  if (! open_port_in_range(min_port, max_port)) {
+    std::cerr << "unable to open a port in range "
+              << min_port << "-" << max_port << endl;
+    return -1;
+  }
+  daemon(1, 0);
+  // make sure main() never returns
+  for (;;) {
+    using rep = std::chrono::seconds::rep;
+    std::chrono::seconds t{std::numeric_limits<rep>::max()};
+    std::this_thread::sleep_for(t);
+  }
+  return 0;
+}
+
+int passive_mode(optional<std::pair<uint16_t, uint16_t>> port_range) {
+  if (port_range)
+    return passive_mode(port_range->first, port_range->second);
+  std::cerr << "no valid port range found" << std::endl;
+  return -1;
+}
+
+std::pair<node_id, actor_addr>
+connect_node(const std::string& node,
+             const std::pair<uint16_t, uint16_t>& range) {
   std::pair<node_id, actor_addr> result;
   scoped_actor self;
   auto mm = io::get_middleman_actor();
-  std::vector<std::string> parts;
-  split(parts, node, ':');
-  if (parts.size() != 2)
-    throw std::invalid_argument("invalid format, expected <host>:<port>");
-  auto port = static_cast<uint16_t>(std::stoul(parts[1]));
-  self->sync_send(mm, connect_atom::value, std::move(parts[0]), port).await(
-    [&](ok_atom, const node_id& nid, actor_addr aid, std::set<std::string>&) {
-      if (nid == invalid_node_id)
-        throw std::runtime_error("no valid node_id received");
-      result = std::make_pair(nid, aid);
-    },
-    [&](error_atom, std::string& msg) {
-      throw runtime_error(std::move(msg));
-    }
-  );
+  for (uint16_t port = range.first;
+       port < range.second && is_invalid(result.first); ++port) {
+    self->sync_send(mm, connect_atom::value, node, port).await(
+      [&](ok_atom, const node_id& nid, actor_addr aid, std::set<std::string>&) {
+        if (! is_invalid(nid))
+          result = std::make_pair(nid, aid);
+      },
+      [&](error_atom, const std::string&) {
+        // nop
+      });
+  }
   return result;
+}
+
+std::pair<node_id, actor_addr>
+connect_node(const std::string& node,
+             const optional<std::pair<uint16_t, uint16_t>>& range) {
+  if (range)
+    return connect_node(node, *range);
+  return {};
+}
+
+std::pair<node_id, actor_addr> connect_node(const std::string& node) {
+  return connect_node(node,
+                      explode(default_port_range, is_any_of("-"))
+                      | map(to_u16) | flatten | to_pair);
 }
 
 int controller(int argc, char** argv, const std::string& client_node) {
@@ -107,34 +169,88 @@ int controller(int argc, char** argv, const std::string& client_node) {
           ctrl_widget->as_actor());
   window.show();
   app.quitOnLastWindowClosed();
-  app.exec();
-  return 0;
+  return app.exec();
+}
+
+int64_t ask_config(actor config_serv, const char* key) {
+  scoped_actor self;
+  int64_t result = 0;
+  self->sync_send(config_serv, get_atom::value, key).await(
+    [&](ok_atom, std::string&, message value) {
+      value.apply([&](int64_t res) { result = res; });
+    },
+    others >> [] {
+      // ignore
+    }
+  );
+  return result;
+}
+
+template <class... Ts>
+maybe<actor> remote_spawn(node_id target, std::string name, Ts&&... xs) {
+  maybe<actor> result = actor{invalid_actor};
+  scoped_actor self;
+  auto mm = io::get_middleman_actor();
+  self->sync_send(mm, spawn_atom::value, target, name,
+                  make_message(std::forward<Ts>(xs)...)).await(
+    [&](ok_atom, const actor_addr& addr, const std::set<std::string>& ifs) {
+      if (ifs.empty())
+        result = actor_cast<actor>(addr);
+      else
+        result = std::make_error_condition(cec::expected_dynamically_typed_remote_actor);
+    },
+    [&](error_atom, const std::string& errmsg) {
+      if (errmsg == "no connection to requested node")
+        result = std::make_error_condition(cec::remote_node_unreachable);
+      else
+        result = std::make_error_condition(cec::unknown_error);
+    }
+  );
+  return result;
 }
 
 int client(const std::vector<node_id>& nodes) {
+  if (nodes.empty()) {
+    std::cerr << "no slave nodes available" << endl;
+    return -1;
+  }
+  std::vector<actor> workers;
+  for (auto& node : nodes) {
+    auto cs = whereis(config_server_atom::value, node);
+    repeat(ask_config(cs, "fractal-demo.hardware-concurrency"),
+           [&]() { append(workers, remote_spawn(node, "CPU worker")); });
+    repeat(ask_config(cs, "fractal-demo.gpu-devices"),
+           [&]() { append(workers, remote_spawn(node, "GPU worker")); });
+  }
   return 0;
 }
 
-std::vector<node_id> connect_nodes(const std::string& nodes_list) {
+
+std::vector<node_id> connect_nodes(const std::string& nodes_list,
+                                   const std::pair<uint16_t, uint16_t>& range) {
   std::vector<node_id> result;
   std::vector<std::string> nl;
   split(nl, nodes_list, ',', token_compress_on);
-  std::cout << "try to connect to " << nl.size() << " worker nodes" << endl;
-  std::transform(nl.begin(), nl.end(),
-                 std::back_inserter(result),
-                 [](const std::string& node) -> node_id {
-                   node_id result;
-                   try {
-                     result = connect_node(node).first;
-                   } catch (std::exception& e) {
-                     std::cerr << "cannot connect to '" << node << "': "
-                               << e.what() << std::endl;
-                   }
-                   return result;
-                 });
-  result.erase(std::remove(result.begin(), result.end(), invalid_node_id),
-               result.end());
-  return result;
+  auto to_node_id = [&](const std::string& node) -> node_id {
+    node_id result;
+    try {
+      result = connect_node(node, range).first;
+    } catch (std::exception& e) {
+      std::cerr << "cannot connect to '" << node << "': "
+                << e.what() << std::endl;
+    }
+    return result;
+  };
+  return filter_not(map(nl, to_node_id), is_invalid);
+}
+
+std::vector<node_id>
+connect_nodes(const std::string& nodes_list,
+              const optional<std::pair<uint16_t, uint16_t>>& port_range) {
+  if (port_range)
+    return connect_nodes(nodes_list, *port_range);
+  std::cerr << "no valid port range found" << std::endl;
+  return {};
 }
 
 int err(const char* str) {
@@ -149,13 +265,14 @@ int main(int argc, char** argv) {
   announce_actor_factory("GPU worker", make_gpu_worker);
   scoped_actor self;
   // parse command line options
-  string cn;
+  std::string cn;
+  std::string range = default_port_range;
   uint16_t port = 20283;
   std::string nodes_list;
   auto sg = detail::make_scope_guard([] {
     shutdown();
   });
-  const map<string, atom_value> fractal_map = {
+  const std::map<std::string, atom_value> fractal_map = {
     {"mandelbrot", mandelbrot_atom::value},
     {"tricorn", tricorn_atom::value},
     {"burnship", burnship_atom::value},
@@ -164,29 +281,31 @@ int main(int argc, char** argv) {
   std::string fractal = "mandelbrot";
   auto res = message_builder(argv+1, argv + argc).extract_opts({
     // general options
-    {"caf-passive-node", "run in passive mode"},
-    {"port,p", "set port (default: 20283)", port},
     {"help,h", "print this help text"},
+    // worker options
+    {"caf-passive-mode", "run in passive mode"},
+    {"caf-port-range", "daemon port range (default: '63000-63050')", range},
     // client options
+    {"caf-slave-nodes", "use given nodes (host:port notation)", nodes_list},
     {"fractal,f", "mandelbrot (default) | tricorn | burnship | julia", fractal},
-    {"node,n", "add given node (host:port notation) as workers", nodes_list},
     {"no-gui", "save images to local directory"},
+    {"port,p", "set port (default: 20283)", port},
     // controller
+    {"controller,c", "start controller UI"},
     {"client-node", "denotes which client to control (host:port notation)", cn},
-    {"controller,c", "start controller UI"}
   });
   if (fractal_map.count(fractal) == 0) {
     std::cout << "unrecognized fractal type" << std::endl;
     return -1;
   }
+  auto u16range = [&] {
+    return explode(range, is_any_of("-")) | map(to_u16) | flatten | to_pair;
+  };
   if (res.opts.count("caf-passive-mode") > 0)
-    return passive_mode();
+    return passive_mode(u16range());
   if (res.opts.count("controller") > 0)
     return controller(argc, argv, cn);
-  auto nodes = connect_nodes(nodes_list);
-  if (nodes.empty())
-    return err("no worker node available");
-  return client(nodes);
+  return client(connect_nodes(nodes_list, u16range()));
 /*
   is_server   = res.opts.count("server") > 0;
   with_opencl = res.opts.count("opencl") > 0;

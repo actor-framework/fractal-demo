@@ -2,6 +2,7 @@
 
 const char* image_format = "PNG";
 const char* image_file_ending = ".png";
+const char* default_port_range = "63000-63050";
 
 const std::uint32_t default_width = 1920;
 const std::uint32_t default_height = 1080;

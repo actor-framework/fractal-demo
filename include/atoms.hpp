@@ -27,6 +27,8 @@ using tricorn_atom = caf::atom_constant<caf::atom("tricorn")>;
 using burnship_atom = caf::atom_constant<caf::atom("burnship")>;
 using mandelbrot_atom = caf::atom_constant<caf::atom("mandelbrot")>;
 
+using config_server_atom = caf::atom_constant<caf::atom("ConfigServ")>;
+
 bool valid_fractal_type(caf::atom_value value);
 
 #endif // FRACTAL_DEMO_ATOMS_HPP

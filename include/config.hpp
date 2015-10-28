@@ -26,6 +26,7 @@
 
 extern const char* image_format;
 extern const char* image_file_ending;
+extern const char* default_port_range;
 
 extern const std::uint32_t default_width;
 extern const std::uint32_t default_height;

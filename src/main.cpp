@@ -8,6 +8,10 @@
 #include "caf/io/all.hpp"
 #include "caf/riac/all.hpp"
 
+// fractal-demo extensions to CAF
+#include "caf/cec.hpp"
+#include "caf/maybe.hpp"
+
 #include "caf/experimental/whereis.hpp"
 #include "caf/experimental/announce_actor_type.hpp"
 
@@ -225,12 +229,8 @@ int client(const std::vector<node_id>& nodes) {
   return 0;
 }
 
-
 std::vector<node_id> connect_nodes(const std::string& nodes_list,
                                    const std::pair<uint16_t, uint16_t>& range) {
-  std::vector<node_id> result;
-  std::vector<std::string> nl;
-  split(nl, nodes_list, ',', token_compress_on);
   auto to_node_id = [&](const std::string& node) -> node_id {
     node_id result;
     try {
@@ -241,7 +241,8 @@ std::vector<node_id> connect_nodes(const std::string& nodes_list,
     }
     return result;
   };
-  return filter_not(map(nl, to_node_id), is_invalid);
+  return explode(nodes_list, ',', token_compress_on)
+         | map(to_node_id) | filter_not(is_invalid);
 }
 
 std::vector<node_id>
@@ -260,14 +261,12 @@ int err(const char* str) {
 
 int main(int argc, char** argv) {
   riac::announce_message_types();
-  announce<std::vector<uint16_t>>("uint16_vec");
   announce_actor_type("CPU worker", cpu_worker);
   announce_actor_factory("GPU worker", make_gpu_worker);
   scoped_actor self;
   // parse command line options
   std::string cn;
   std::string range = default_port_range;
-  uint16_t port = 20283;
   std::string nodes_list;
   auto sg = detail::make_scope_guard([] {
     shutdown();
@@ -289,7 +288,6 @@ int main(int argc, char** argv) {
     {"caf-slave-nodes", "use given nodes (host:port notation)", nodes_list},
     {"fractal,f", "mandelbrot (default) | tricorn | burnship | julia", fractal},
     {"no-gui", "save images to local directory"},
-    {"port,p", "set port (default: 20283)", port},
     // controller
     {"controller,c", "start controller UI"},
     {"client-node", "denotes which client to control (host:port notation)", cn},

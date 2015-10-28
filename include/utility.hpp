@@ -104,9 +104,8 @@ void append(Container& xs, T x) {
 
 template <class Container, class T>
 void append(Container& xs, caf::maybe<T> x) {
-  auto xptr = caf::get<T>(&x);
-  if (xptr)
-    xs.emplace_back(std::move(*xptr));
+  if (x)
+    xs.emplace_back(std::move(*x));
 }
 
 template <class T, class F>

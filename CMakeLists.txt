@@ -90,7 +90,7 @@ qt5_wrap_ui(UI_HDRS controller.ui main.ui)
 include_directories(. include ${CMAKE_BINARY_DIR} ${CAF_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDES})
 
 set(SOURCES
-    src/maybe.cpp
+    src/cec.cpp
     src/config.cpp
     src/main.cpp
     src/buffer.cpp

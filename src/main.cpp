@@ -32,6 +32,8 @@ using namespace caf::experimental;
 // from utility, allows "explode(...) | map(...) | ..."
 using namespace vector_operators;
 
+using std::cout;
+using std::cerr;
 using std::endl;
 
 spawn_result make_gpu_worker(message args) {
@@ -52,6 +54,7 @@ struct cpu_worker_state {
 
 behavior cpu_worker(stateful_actor<cpu_worker_state>*,
                     atom_value fractal) {
+cout << "spawned new CPU worker" << endl;
   if (! valid_fractal_type(fractal))
     return {};
   return {
@@ -100,7 +103,7 @@ bool publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
                     whom.address(), std::set<std::string>{}, "", false);
 }
 
-int passive_mode(uint16_t min_port, uint16_t max_port) {
+int passive_mode(uint16_t min_port, uint16_t max_port, bool daemonize) {
   auto cs = whereis(config_server_atom::value);
   anon_send(cs, put_atom::value, "fractal-demo.hardware-concurrency",
             make_message(static_cast<int64_t>(std::thread::hardware_concurrency())));
@@ -109,7 +112,8 @@ int passive_mode(uint16_t min_port, uint16_t max_port) {
               << min_port << "-" << max_port << endl;
     return -1;
   }
-  daemon(1, 0);
+  if (daemonize)
+    daemon(1, 0);
   // make sure main() never returns
   for (;;) {
     using rep = std::chrono::seconds::rep;
@@ -119,9 +123,10 @@ int passive_mode(uint16_t min_port, uint16_t max_port) {
   return 0;
 }
 
-int passive_mode(optional<std::pair<uint16_t, uint16_t>> port_range) {
+int passive_mode(optional<std::pair<uint16_t, uint16_t>> port_range,
+                 bool daemonize) {
   if (port_range)
-    return passive_mode(port_range->first, port_range->second);
+    return passive_mode(port_range->first, port_range->second, daemonize);
   std::cerr << "no valid port range found" << std::endl;
   return -1;
 }
@@ -133,15 +138,20 @@ connect_node(const std::string& node,
   scoped_actor self;
   auto mm = io::get_middleman_actor();
   for (uint16_t port = range.first;
-       port < range.second && is_invalid(result.first); ++port) {
+       port < range.second && is_invalid(result.first);
+       ++port) {
     self->sync_send(mm, connect_atom::value, node, port).await(
-      [&](ok_atom, const node_id& nid, actor_addr aid, std::set<std::string>&) {
+      [&](ok_atom, node_id& nid, actor_addr& aid, std::set<std::string>&) {
         if (! is_invalid(nid))
-          result = std::make_pair(nid, aid);
+          result = std::make_pair(std::move(nid), std::move(aid));
       },
-      [&](error_atom, const std::string&) {
+      [&](error_atom, const std::string& err) {
         // nop
       });
+  }
+  if (is_invalid(result.first)) {
+    cerr << "cannot connect to " << node << " in port range "
+         << range.first << "-" << range.second << endl;
   }
   return result;
 }
@@ -210,22 +220,40 @@ maybe<actor> remote_spawn(node_id target, std::string name, Ts&&... xs) {
         result = std::make_error_condition(cec::unknown_error);
     }
   );
+  if (result)
+    cout << "got worker: " << to_string(*result) << " via "
+         << to_string(self.address()) << endl;
   return result;
 }
 
-int client(const std::vector<node_id>& nodes) {
+int client(const std::vector<node_id>& nodes, atom_value fractal_type) {
   if (nodes.empty()) {
     std::cerr << "no slave nodes available" << endl;
     return -1;
   }
+  cout << "found " << nodes.size() << " slave nodes, spawn workers ..." << endl;
+  int64_t total_cpu_workers = 0;
+  int64_t total_gpu_workers = 0;
   std::vector<actor> workers;
   for (auto& node : nodes) {
     auto cs = whereis(config_server_atom::value, node);
-    repeat(ask_config(cs, "fractal-demo.hardware-concurrency"),
-           [&]() { append(workers, remote_spawn(node, "CPU worker")); });
-    repeat(ask_config(cs, "fractal-demo.gpu-devices"),
-           [&]() { append(workers, remote_spawn(node, "GPU worker")); });
+    auto hc = ask_config(cs, "fractal-demo.hardware-concurrency");
+    total_cpu_workers += hc;
+    repeat(hc, [&] { append(workers,
+                            remote_spawn(node, "CPU worker", fractal_type)); });
+    auto gd = ask_config(cs, "fractal-demo.gpu-devices");
+    total_gpu_workers += gd;
+    repeat(gd, [&] { append(workers,
+                            remote_spawn(node, "GPU worker", fractal_type)); });
   }
+  if (workers.empty()) {
+    cerr << "could not spawn any workers" << endl;
+    return -1;
+  }
+  cout << "run demo on " << nodes.size() << " slave nodes with "
+       << total_cpu_workers << " CPU workers and "
+       << total_gpu_workers << " GPU workers" << endl;
+
   return 0;
 }
 
@@ -250,7 +278,6 @@ connect_nodes(const std::string& nodes_list,
               const optional<std::pair<uint16_t, uint16_t>>& port_range) {
   if (port_range)
     return connect_nodes(nodes_list, *port_range);
-  std::cerr << "no valid port range found" << std::endl;
   return {};
 }
 
@@ -271,7 +298,7 @@ int main(int argc, char** argv) {
   auto sg = detail::make_scope_guard([] {
     shutdown();
   });
-  const std::map<std::string, atom_value> fractal_map = {
+  std::map<std::string, atom_value> fractal_map = {
     {"mandelbrot", mandelbrot_atom::value},
     {"tricorn", tricorn_atom::value},
     {"burnship", burnship_atom::value},
@@ -283,9 +310,10 @@ int main(int argc, char** argv) {
     {"help,h", "print this help text"},
     // worker options
     {"caf-passive-mode", "run in passive mode"},
+    {"caf-daemonize-passive-process", "daemonize process when in passive mode"},
     {"caf-port-range", "daemon port range (default: '63000-63050')", range},
     // client options
-    {"caf-slave-nodes", "use given nodes (host:port notation)", nodes_list},
+    {"caf-slave-nodes", "use given nodes", nodes_list},
     {"fractal,f", "mandelbrot (default) | tricorn | burnship | julia", fractal},
     {"no-gui", "save images to local directory"},
     // controller
@@ -300,10 +328,11 @@ int main(int argc, char** argv) {
     return explode(range, is_any_of("-")) | map(to_u16) | flatten | to_pair;
   };
   if (res.opts.count("caf-passive-mode") > 0)
-    return passive_mode(u16range());
+    return passive_mode(u16range(),
+                        res.opts.count("caf-daemonize-passive-process") > 0);
   if (res.opts.count("controller") > 0)
     return controller(argc, argv, cn);
-  return client(connect_nodes(nodes_list, u16range()));
+  return client(connect_nodes(nodes_list, u16range()), fractal_map[fractal]);
 /*
   is_server   = res.opts.count("server") > 0;
   with_opencl = res.opts.count("opencl") > 0;

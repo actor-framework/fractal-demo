@@ -17,21 +17,26 @@ public:
     // nop
   }
 
-  inline bool operator()(const caf::node_id& x) const {
-    return x == caf::invalid_node_id;
+  template <class T>
+  bool operator()(const caf::maybe<T>& x) const {
+    return ! x;
+  }
+
+  template <class T>
+  bool operator()(const caf::optional<T>& x) const {
+    return ! x;
   }
 
   inline bool operator()(const caf::actor& x) const {
     return x == caf::invalid_actor;
   }
 
-  inline bool operator()(const caf::actor_addr& x) const {
-    return x == caf::invalid_actor_addr;
+  inline bool operator()(const caf::node_id& x) const {
+    return x == caf::invalid_node_id;
   }
 
-  template <class T>
-  bool operator()(const caf::optional<T>& x) const {
-    return ! x;
+  inline bool operator()(const caf::actor_addr& x) const {
+    return x == caf::invalid_actor_addr;
   }
 };
 
@@ -74,7 +79,8 @@ auto map(F f) {
   };
 }
 
-auto to_pair = [](const auto& xs) -> caf::optional<decltype(std::make_pair(xs.front(), xs.back()))> {
+auto to_pair = [](const auto& xs)
+-> caf::optional<decltype(std::make_pair(xs.front(), xs.back()))> {
   if (xs.size() != 2)
     return caf::none;
   return std::make_pair(xs.front(), xs.back());
@@ -89,11 +95,11 @@ caf::optional<uint16_t> to_u16(const std::string& str) {
   return caf::none;
 }
 
-auto flatten = [](const auto& xs) {
+auto flatten = [](auto xs) {
   std::vector<typename std::decay<decltype(*xs.front())>::type> result;
   for (auto& x : xs)
     if (x)
-      result.push_back(*x);
+      result.push_back(std::move(*x));
   return result;
 };
 

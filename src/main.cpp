@@ -55,9 +55,9 @@ struct cpu_worker_state {
   const char* name = "CPU worker";
 };
 
-behavior cpu_worker(stateful_actor<cpu_worker_state>*,
+behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
                     atom_value fractal) {
-  cout << "spawned new CPU worker" << endl;
+  aout(self) << "spawned new CPU worker" << endl;
   if (! valid_fractal_type(fractal))
     return {};
   return {
@@ -77,7 +77,7 @@ behavior cpu_worker(stateful_actor<cpu_worker_state>*,
 }
 
 template <class F, class Atom, class... Ts>
-bool x_in_range(uint16_t min_port, uint16_t max_port,
+optional<uint16_t> x_in_range(uint16_t min_port, uint16_t max_port,
                 F fun, Atom op, const Ts&... xs) {
   scoped_actor self;
   auto mm = io::get_middleman_actor();
@@ -90,18 +90,20 @@ bool x_in_range(uint16_t min_port, uint16_t max_port,
         success = false;
       }
     );
+    if (success)
+      return port;
   }
-  return success;
+  return none;
 }
 
-bool open_port_in_range(uint16_t min_port, uint16_t max_port) {
+optional<uint16_t> open_port_in_range(uint16_t min_port, uint16_t max_port) {
   auto f = [](ok_atom, uint16_t actual_port) {
     std::cout << "running in passive mode on port " << actual_port << endl;
   };
   return x_in_range(min_port, max_port, f, open_atom::value, "", false);
 }
 
-bool publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
+optional<uint16_t> publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
   auto f = [](ok_atom, uint16_t actual_port) {
     std::cout << "running in passive mode on port " << actual_port << endl;
   };
@@ -109,8 +111,7 @@ bool publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
                     whom.address(), std::set<string>{}, "", false);
 }
 
-std::pair<node_id, actor_addr>
-connect_node(const string& node, uint16_t port) {
+std::pair<node_id, actor_addr> connect_node(const string& node, uint16_t port) {
   std::pair<node_id, actor_addr> result;
   scoped_actor self;
   auto mm = io::get_middleman_actor();
@@ -269,6 +270,10 @@ vector<node_id> connect_nodes(const string& nodes_list) {
 class actor_system;
 
 int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
+  cout << "nodes:" << endl;
+  for (auto& n : nodes) {
+    cout << to_string(n) << endl;
+  }
   std::map<string, atom_value> fractal_map = {
     {"mandelbrot", mandelbrot_atom::value},
     {"tricorn", tricorn_atom::value},
@@ -323,10 +328,11 @@ public:
     string range = default_port_range;
     string bnode;
     string nodes_list;
+    string name;
     auto res = message_builder(argv_ + 1, argv_ + argc_).extract_opts({
       // worker options
       {"caf-passive-mode", "run in passive mode"},
-      {"caf-daemonize-passive-process", "daemonize passive process"},
+      {"caf-slave-name", "set name when running in passive mode", name},
       {"caf-passive-mode-port-range", "daemon port range [63000-63050]", range},
       {"caf-bootstrap-node", "set bootstrap node (host/port notation)", bnode},
       {"caf-slave-nodes", "set slave nodes ('host/port'' notation)", nodes_list}
@@ -343,9 +349,7 @@ public:
       return check(pr, "no valid port range specified")
              && check(res.opts.count("caf-bootstrap-node"), "no bootstrap node")
              && check(bootstrapper, "invalid bootstrap host or port")
-             ? passive_mode(pr->first, pr->second,
-                            *bootstrapper,
-                            res.opts.count("caf-daemonize-passive-process"))
+             ? passive_mode(pr->first, pr->second, name, *bootstrapper)
              : -1;
     }
     res.remainder.extract([&](string& x) { args.emplace_back(std::move(x)); });
@@ -372,25 +376,17 @@ public:
 
 private:
   int passive_mode(uint16_t min_port, uint16_t max_port,
-                   actor bootstrapper, bool daemonize) {
+                   const string& name, actor bootstrapper) {
     auto cs = whereis(config_server_atom::value);
     anon_send(cs, put_atom::value, "fractal-demo.hardware-concurrency",
               make_message(static_cast<int64_t>(std::thread::hardware_concurrency())));
-    if (! open_port_in_range(min_port, max_port)) {
+    auto port = open_port_in_range(min_port, max_port);
+    if (! port) {
       std::cerr << "unable to open a port in range "
                 << min_port << "-" << max_port << endl;
       return -1;
     }
-    auto guardian = spawn([](event_based_actor* self) -> behavior {
-      return {
-        others >> [=] {
-          cerr << "guardian received a message: "
-               << to_string(self->current_message()) << endl;
-        }
-      };
-    });
-    if (daemonize)
-      daemon(1, 0);
+    anon_send(bootstrapper, ok_atom::value, name, *port);
     scoped_actor self;
     self->monitor(bootstrapper);
     uint32_t rsn = 0;
@@ -399,7 +395,7 @@ private:
         rsn = dm.reason;
       }
     );
-    return static_cast<int>(rsn) * -1;
+    return -static_cast<int>(rsn);
   }
 
   int argc_;
@@ -412,255 +408,4 @@ int main(int argc, char** argv) {
   announce_actor_factory("GPU worker", make_gpu_worker);
   actor_system sys{argc, argv};
   return sys.run(run);
-  /*
-  scoped_actor self;
-  // parse command line options
-  string cn;
-  string range = default_port_range;
-  string bnode;
-  string nodes_list;
-  std::map<string, atom_value> fractal_map = {
-    {"mandelbrot", mandelbrot_atom::value},
-    {"tricorn", tricorn_atom::value},
-    {"burnship", burnship_atom::value},
-    {"julia", julia_atom::value},
-  };
-  string fractal = "mandelbrot";
-  auto res = message_builder(argv+1, argv + argc).extract_opts({
-    // general options
-    {"help,h", "print this help text"},
-    // worker options
-    {"caf-passive-mode", "run in passive mode"},
-    {"caf-daemonize-passive-process", "daemonize process when in passive mode"},
-    {"caf-port-range", "daemon port range (default: '63000-63050')", range},
-    {"caf-bootstrap-node", "set bootstrap node (host/port notation)", bnode},
-    // client options
-    {"caf-slave-nodes", "use given nodes (host/port notation)", nodes_list},
-    {"fractal,f", "mandelbrot (default) | tricorn | burnship | julia", fractal},
-    {"no-gui", "save images to local directory"},
-    // controller
-    {"controller,c", "start controller UI"},
-    {"client-node", "denotes which client to control (host:port notation)", cn},
-  });
-  if (fractal_map.count(fractal) == 0) {
-    std::cout << "unrecognized fractal type" << std::endl;
-    return -1;
-  }
-  if (res.opts.count("caf-passive-mode") > 0)
-    return passive_mode(explode(range, "-") | map(to_u16) | flatten | to_pair,
-                        res.opts.count("caf-daemonize-passive-process") > 0);
-  */
-/*
-  is_server   = res.opts.count("server") > 0;
-  with_opencl = res.opts.count("opencl") > 0;
-  publish_workers = res.opts.count("publish") > 0;
-  no_gui = res.opts.count("no-gui") > 0;
-  is_controller = res.opts.count("controller") > 0;
-  if ( res.opts.count("help") > 0 || !res.error.empty() ||
-      !res.remainder.empty()) {
-    print_desc_and_exit(res);
-  }
-  if (nexus_port && !nexus_host.empty()) {
-    riac::init_probe(nexus_host, *nexus_port);
-  }
-  if (!is_server && !is_controller) {
-    if (nuworkers_ == 0) {
-      nuworkers_ = 1;
-    }
-    vector<actor> workers;
-    // spawn at most one GPU worker
-    if (with_opencl) {
-      cout << "add an OpenCL worker" << endl;
-      workers.push_back(spawn_opencl_client(opencl_device_id));
-      if (nuworkers_ > 0) {
-        --nuworkers_;
-      }
-    }
-    for (size_t i = 0; i < nuworkers_; ++i) {
-      cout << "add a CPU worker" << endl;
-      workers.push_back(spawn<client>());
-    }
-    auto emergency_shutdown = [&] {
-      for (auto w : workers) {
-        self->send_exit(w, exit_reason::remote_link_unreachable);
-      }
-      await_all_actors_done();
-      shutdown();
-      exit(-1);
-    };
-    auto send_workers = [&](const actor& ctrl) {
-      for (auto w : workers) {
-        send_as(w, ctrl, atom("add"));
-      }
-    };
-    if (publish_workers) {
-      try {
-        io::publish(self, port);
-      } catch (std::exception& e) {
-        cerr << "unable to publish at port " << port << ": " << e.what()
-             << endl;
-        emergency_shutdown();
-      }
-      self->receive_loop(
-        on(atom("getWorkers"), arg_match) >> [&](const actor& last_sender) {
-          send_workers(last_sender);
-        },
-        others >> [&] {
-          cerr << "unexpected: " << to_string(self->current_message()) << endl;
-        }
-      );
-    } else {
-      try {
-        auto controller = io::remote_actor(host, port);
-        send_workers(controller);
-      } catch (std::exception& e) {
-        cerr << "unable to connect to server: " << e.what() << endl;
-        emergency_shutdown();
-      }
-    }
-    await_all_actors_done();
-    shutdown();
-    return 0;
-  } else if (is_server && !is_controller) {
-    // check fractaltype in arg is valid
-    auto fractal_is_vaild = any_of(
-      valid_fractal.begin(), valid_fractal.end(),
-      [fractal](const map<string, atom_value>::value_type& fractal_type) {
-        return fractal_type.first == fractal;
-      });
-    if (!fractal_is_vaild) {
-      cerr << "fractal is not valid" << endl << "choose between: ";
-      for (auto& valid_fractal_pair : valid_fractal) {
-        cerr << valid_fractal_pair.first << " ";
-      }
-      cerr << endl;
-      print_desc_and_exit(res);
-    }
-
-    auto fractal_type_pair = find_if(
-      valid_fractal.begin(), valid_fractal.end(),
-      [fractal](const map<string, atom_value>::value_type& fractal_type) {
-        return fractal == fractal_type.first;
-      });
-
-    // else: server mode
-    // read config
-    auto srvr = spawn<server>(fractal_type_pair->second);
-    auto ctrl = spawn<controller>(srvr);
-    // TODO: this vector is completely useless to the application,
-    //      BUT: libcppa will close the network connection, because the app.
-    //      calls ptr = remote_actor(..), sends a message and then ptr goes
-    //      out of scope, i.e., no local reference to the remote actor
-    //      remains ... however, the remote node will eventually answer to
-    //      the message (which will fail, because the network connection
-    //      was closed *sigh*); long story short: fix it by improve how
-    //      'unused' network connections are detected
-    vector<actor> remotes;
-    if (not nodes_list.empty()) {
-      vector<string> nl;
-      split(nl, nodes_list, ',');
-      aout(self) << "try to connect to " << nl.size() << " worker nodes" << endl;
-      for (auto& n : nl) {
-        vector<string> parts;
-        split(parts, n, ':');
-        message_builder{parts.begin(), parts.end()}.apply(
-          on(val<string>, projection<uint16_t>) >>
-          [&](const string& host, std::uint16_t p) {
-            try {
-              aout(self) << "get workers from " << host << ":" << p << endl;
-              auto ptr = io::remote_actor(host, p);
-              remotes.push_back(ptr);
-              send_as(ctrl, ptr, atom("getWorkers"), ctrl);
-            } catch (std::exception& e) {
-              cerr << "unable to connect to " << host << " on port " << p << endl;
-            }
-          }
-        );
-      }
-    }
-    try {
-      io::publish(srvr, port);
-    } catch (std::exception& e) {
-      cerr << "unable to publish actor: " << e.what() << endl;
-      return -1;
-    }
-    if (nuworkers_ > 0) {
-#   ifdef ENABLE_OPENCL
-        // spawn at most one GPU worker
-        if (with_opencl) {
-          cout << "add an OpenCL worker" << endl;
-          send_as(spawn_opencl_client(opencl_device_id), ctrl, atom("add"));
-          if (nuworkers_ > 0)
-            --nuworkers_;
-        }
-#   endif // ENABLE_OPENCL
-      for (size_t i = 0; i < nuworkers_; ++i) {
-        cout << "add a CPU worker" << endl;
-        send_as(spawn<client>(), ctrl, atom("add"));
-      }
-    }
-    if (no_gui) {
-      self->send(srvr, atom("SetSink"), self);
-      uint32_t received_images = 0;
-      uint32_t total_images = 0xFFFFFFFF; // set properly in 'done' handler
-      self->receive_while([&] { return received_images < total_images; }) (
-        on(atom("image"), arg_match) >> [&](const QByteArray& ba) {
-           auto img = QImage::fromData(ba, image_format);
-           std::ostringstream fname;
-           fname.width(4);
-           fname.fill('0');
-           fname.setf(ios_base::right);
-           fname << image_file_ending;
-           QFile f{fname.str().c_str()};
-           if (!f.open(QIODevice::WriteOnly)) {
-             cerr << "could not open file: " << fname.str() << endl;
-           } else
-             img.save(&f, image_format);
-           ++received_images;
-         },
-        others >> [&] {
-          cerr << "main:unexpected: "
-               << to_string(self->current_message()) << endl;
-        }
-      );
-    } else {
-      // launch gui
-      QApplication app{argc, argv};
-      QMainWindow window;
-      Ui::Main main;
-      main.setupUi(&window);
-      //            main.mainWidget->set_server(master);
-      // todo tell widget about other actors?
-      //window.resize(ini.get_or_else("fractals", "width", default_width),
-      //              ini.get_or_else("fractals", "height", default_height));
-      window.resize(default_width, default_height);
-      self->send(srvr, atom("SetSink"), main.mainWidget->as_actor());
-      window.show();
-      app.quitOnLastWindowClosed();
-      app.exec();
-    }
-    self->send_exit(ctrl, exit_reason::user_shutdown);
-    // await_all_actors_done();
-    shutdown();
-  } else if (is_controller && !is_server) { // is controller ui
-    cout << "starting controller ui" << endl;
-    auto ctrl = io::remote_actor(host, port);
-    // launch gui
-    QApplication app{argc, argv};
-    QMainWindow window;
-    Ui::Controller ctrl_ui;
-    ctrl_ui.setupUi(&window);
-    auto ctrl_widget = ctrl_ui.controllerWidget;
-    ctrl_widget->set_controller(ctrl);
-    ctrl_widget->initialize();
-    send_as(ctrl_widget->as_actor(), ctrl, atom("widget"),
-            ctrl_widget->as_actor());
-    self->send(ctrl_widget->as_actor(), atom("fraclist"), valid_fractal);
-    window.show();
-    app.quitOnLastWindowClosed();
-    app.exec();
-  } else {
-    print_desc_and_exit(res);
-  }
-*/
 }

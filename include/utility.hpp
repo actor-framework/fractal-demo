@@ -279,7 +279,46 @@ F lift(F f) {
   return f;
 }
 
+static constexpr const char base64_tbl[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                           "abcdefghijklmnopqrstuvwxyz"
+                                           "0123456789+/";
+
+std::string encode_base64(const std::string& str) {
+  std::string result;
+  // consumes three characters from input
+  auto consume = [&](auto i) {
+    int buf[] {
+      (i[0] & 0xfc) >> 2,
+      ((i[0] & 0x03) << 4) + ((i[1] & 0xf0) >> 4),
+      ((i[1] & 0x0f) << 2) + ((i[2] & 0xc0) >> 6),
+      i[2] & 0x3f
+    };
+    for (auto x : buf)
+      result += base64_tbl[x];
+  };
+  // iterate string in chunks of three characters
+  auto i = str.begin();
+  for ( ; std::distance(i, str.end()) >= 3; i += 3)
+    consume(i);
+  if (i != str.end()) {
+    // "fill" string with 0s
+    char cbuf[] = {0, 0, 0};
+    std::copy(i, str.end(), cbuf);
+    consume(cbuf);
+    // override filled characters (garbage) with '='
+    for (auto j = result.end() - (3 - (str.size() % 3)); j != result.end(); ++j)
+      *j = '=';
+  }
+  return result;
+}
+
 namespace container_operators {
+
+template <class T>
+auto operator+(std::vector<T> xs, const std::vector<T> ys) {
+  xs.insert(xs.end(), ys.begin(), ys.end());
+  return xs;
+}
 
 template <class T, class F>
 auto operator|(std::vector<T> xs, F fun) -> decltype(fun(xs)) {

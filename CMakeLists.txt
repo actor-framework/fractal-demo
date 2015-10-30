@@ -108,3 +108,5 @@ add_executable(fractal-demo ${SOURCES} ${HEADERS} ${UI_HDRS})
 target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OPENCL_LIBRARIES})
 qt5_use_modules(fractal-demo Widgets)
 
+add_executable(cafrun src/cafrun.cpp)
+target_link_libraries(cafrun ${CMAKE_DL_LIBS} ${CAF_LIBRARIES})

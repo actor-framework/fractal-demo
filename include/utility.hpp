@@ -86,7 +86,10 @@ auto to_pair = [](const auto& xs)
   return std::make_pair(xs.front(), xs.back());
 };
 
-caf::optional<uint16_t> to_u16(const std::string& str) {
+caf::optional<uint16_t> to_u16(caf::optional<const std::string&> x) {
+  if (! x)
+    return caf::none;
+  auto& str = *x;
   char* e;
   auto res = strtoul(str.c_str(), &e, 10);
   if (e == (str.c_str() + str.size())
@@ -129,4 +132,15 @@ auto operator|(std::vector<T> xs, F fun) -> decltype(fun(xs)) {
   return fun(std::move(xs));
 }
 
-} // vector_operators
+} // namespace vector_operators
+
+namespace {
+
+struct eom_t { } eom; // end-of-main marker in case of an error
+
+int operator<<(std::ostream& out, const eom_t&) {
+  out << std::endl;
+  return -1;
+}
+
+} // namespace <anonymous>

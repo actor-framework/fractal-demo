@@ -30,7 +30,7 @@ using namespace caf;
 using namespace caf::experimental;
 
 // from utility, allows "explode(...) | map(...) | ..."
-using namespace vector_operators;
+using namespace container_operators;
 
 using std::cout;
 using std::cerr;
@@ -234,78 +234,9 @@ vector<node_id> connect_nodes(const string& nodes_list) {
          | map(to_node_id) | filter_not(is_invalid);
 }
 
-int err(const char* str) {
-  std::cerr << str << std::endl;
-  return -1;
-}
-
 class actor_system;
 
-template <class T>
-struct optify {
-  using type = optional<T>;
-};
-
-template <class T>
-struct optify<optional<T>> {
-  using type = optional<T>;
-};
-
-template <class T>
-using optify_t = typename optify<T>::type;
-
-bool any_none() {
-  return false;
-}
-
-template <class T, class... Ts>
-bool any_none(const T& x, const Ts&... xs) {
-  if (! x)
-    return true;
-  return any_none(xs...);
-}
-
-template <class F, class Sig = typename detail::get_callable_trait<F>::fun_type>
-class lift_t;
-
-template <class F, class R, class... Ts>
-class lift_t<F, std::function<R (Ts...)>> {
-public:
-  lift_t(F f) : f_(std::move(f)) {
-    // nop
-  }
-
-  optify_t<R> operator()(optify_t<Ts>... xs) {
-    if (any_none(xs...))
-      return none;
-    try {
-      return f_(*xs...);
-    } catch (...) {
-      return none;
-    }
-  }
-
-private:
-  F f_;
-};
-
-template <class F>
-struct is_lifted : std::false_type { };
-
-template <class F, class Sig>
-struct is_lifted<lift_t<F, Sig>> : std::true_type { };
-
-template <class F, class Enable = std::enable_if_t<! is_lifted<F>::value>>
-lift_t<F> lift(F f) {
-  return {f};
-}
-
-template <class F, class Enable = std::enable_if_t<is_lifted<F>::value>>
-F lift(F f) {
-  return std::move(f);
-}
-
-int run(actor_system&, vector<node_id> nodes, vector<string> args) {
+int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
   std::map<string, atom_value> fractal_map = {
     {"mandelbrot", mandelbrot_atom::value},
     {"tricorn", tricorn_atom::value},
@@ -314,7 +245,7 @@ int run(actor_system&, vector<node_id> nodes, vector<string> args) {
   };
   string fractal = "mandelbrot";
   string controllee;
-  auto res = message_builder(args.begin(), args.end()).extract_opts({
+  auto res = message_builder(argv + 1, argv + argc).extract_opts({
     // client options
     {"fractal,f", "mandelbrot (default) | tricorn | burnship | julia", fractal},
     {"no-gui", "save images to local directory"},
@@ -323,31 +254,20 @@ int run(actor_system&, vector<node_id> nodes, vector<string> args) {
   });
   if (fractal_map.count(fractal) == 0)
     std::cerr << "unrecognized fractal type" << eom;
-  //if (res.opts.count("controllee"))
+  if (! res.opts.count("controllee"))
+    return client(nodes, fractal_map[fractal]);
+  auto f = lift(io::remote_actor);
+  auto x = explode(controllee, '/') | to_pair;
+  auto c = f(oget<0>(x), to_u16(oget<1>(x)));
   return 0;
 }
 
-template <class Condition, class... Ts>
-bool check(Condition&& x, const char* error, Ts&&... xs) {
-  if (! x) {
-    std::cerr << error << std::endl;
-    return false;
-  }
-  return true;
-}
-
-template <class T, class U>
-optional<U> take_first(optional<std::pair<T, U>> x) {
+template <class T>
+bool check(T&& x, const char* error) {
   if (x)
-    return x->first;
-  return none;
-}
-
-template <class T, class U>
-optional<U> take_second(optional<std::pair<T, U>> x) {
-  if (x)
-    return x->second;
-  return none;
+    return true;
+  std::cerr << error << std::endl;
+  return false;
 }
 
 class actor_system {
@@ -356,8 +276,14 @@ public:
     // nop
   }
 
-  template <class F>
-  int run(F fun) {
+  using f0 = std::function<int (actor_system&, int, char**)>;
+  using f1 = std::function<int (actor_system&, std::vector<node_id>, int, char**)>;
+
+  int run(f0 fun) {
+    return fun(*this, argc_, argv_);
+  }
+
+  int run(f1 fun) {
     auto sg = detail::make_scope_guard([] {
       shutdown();
     });
@@ -375,12 +301,15 @@ public:
     }, nullptr, true);
     if (res.opts.count("caf-passive-mode") > 0) {
       auto pr = explode(range, "-") | map(to_u16) | flatten | to_pair;
+      auto bslist = explode(bnode, ',');
+      optional<actor> bootstrapper;
       auto f = lift(io::remote_actor);
-      auto bn = explode(bnode, '/') | to_pair;
-      auto bootstrapper = f(take_first(bn), to_u16(take_second(bn)));
+      for (auto i = bslist.begin(); i != bslist.end() && ! bootstrapper; ++i) {
+        auto x = explode(*i, '/') | to_pair;
+        bootstrapper = f(oget<0>(x), to_u16(oget<1>(x)));
+      }
       return check(pr, "no valid port range specified")
              && check(res.opts.count("caf-bootstrap-node"), "no bootstrap node")
-             && check(bn, "invalid bootstrap node; use 'host/port' notation")
              && check(bootstrapper, "invalid bootstrap host or port")
              ? passive_mode(pr->first, pr->second,
                             *bootstrapper,
@@ -388,8 +317,26 @@ public:
              : -1;
     }
     res.remainder.extract([&](string& x) { args.emplace_back(std::move(x)); });
-    return fun(*this, connect_nodes(nodes_list), std::move(args));
+    // generate argc/argv pair from remaining arguments
+    auto argc = static_cast<int>(args.size()) + 1;
+    std::vector<char*> argv;
+    argv.push_back(argv[0]);
+    for (auto& arg : args)
+      argv.push_back(const_cast<char*>(arg.c_str()));
+    return fun(*this, connect_nodes(nodes_list), argc, argv.data());
   }
+
+  /// Returns the *unmodified* number of
+  /// arguments used to initialize this system.
+  int argc() const {
+    return argc_;
+  }
+
+  /// Returns the *unmodified* arguments used to initialize this system.
+  char** argv() const {
+    return argv_;
+  }
+
 
 private:
   int passive_mode(uint16_t min_port, uint16_t max_port,

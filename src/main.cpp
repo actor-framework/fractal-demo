@@ -22,6 +22,7 @@
 #include "controller.hpp"
 #include "mainwidget.hpp"
 #include "projection.hpp"
+#include "client_actor.hpp"
 #include "calculate_fractal.hpp"
 
 #include "ui_controller.h"
@@ -56,18 +57,21 @@ struct cpu_worker_state {
 
 behavior cpu_worker(stateful_actor<cpu_worker_state>*,
                     atom_value fractal) {
-cout << "spawned new CPU worker" << endl;
+  cout << "spawned new CPU worker" << endl;
   if (! valid_fractal_type(fractal))
     return {};
   return {
     [=](uint32_t image_id, uint16_t iterations,
         uint32_t width, uint32_t height, float min_re, float max_re,
         float min_im, float max_im) -> fractal_result {
-      return std::make_tuple(calculate_fractal(fractal, width, height,
-                                               iterations,
-                                               min_re, max_re,
-                                               min_im, max_im),
-                             image_id);
+      auto t1 = std::chrono::high_resolution_clock::now();
+      auto result = calculate_fractal(fractal, width, height,
+                                      iterations,
+                                      min_re, max_re,
+                                      min_im, max_im);
+      auto t2 = std::chrono::high_resolution_clock::now();
+      auto diff = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+      return std::make_tuple(result, image_id, diff.count());
     }
   };
 }
@@ -133,7 +137,8 @@ connect_node(const optional<std::pair<string, string>>& x) {
   return connect_node(x->first, *port);
 }
 
-int controller(int argc, char** argv, const string& client_node, uint16_t client_port) {
+int controller(int argc, char** argv, const string& client_node,
+               uint16_t client_port) {
   auto ctrl = actor_cast<actor>(connect_node(client_node, client_port).second);
   QApplication app{argc, argv};
   QMainWindow window;
@@ -189,7 +194,8 @@ maybe<actor> remote_spawn(node_id target, string name, Ts&&... xs) {
   return result;
 }
 
-int client(const vector<node_id>& nodes, atom_value fractal_type) {
+int client(int argc, char** argv,
+           const vector<node_id>& nodes, atom_value fractal_type) {
   if (nodes.empty()) {
     std::cerr << "no slave nodes available" << endl;
     return -1;
@@ -216,6 +222,32 @@ int client(const vector<node_id>& nodes, atom_value fractal_type) {
   cout << "run demo on " << nodes.size() << " slave nodes with "
        << total_cpu_workers << " CPU workers and "
        << total_gpu_workers << " GPU workers" << endl;
+  // Get some test values
+  auto clt = spawn<client_actor>(workers);
+  {
+    scoped_actor self;
+    self->send(clt, test_atom::value, self);
+    self->receive([](size_t best_case, double avarage_case, size_t worst_case) {
+      std::cout << "Best case: "    << best_case    << std::endl
+                << "Avarage case: " << avarage_case << std::endl
+                << "Worst case: "   << worst_case   << std::endl;
+    });
+  }
+  // Lauch gui
+  QApplication app{argc, argv};
+  QMainWindow window;
+  Ui::Main main;
+  main.setupUi(&window);
+  window.resize(default_width, default_height);
+  //anon_send(clt, atom("SetSink"), actor_cast<actor>(*main.mainWidget));
+  anon_send(clt, atom("SetSink"), main.mainWidget->as_actor());
+  window.show();
+  app.quitOnLastWindowClosed();
+  app.exec();
+  // TODO: Setup alrogithm based on this values
+  // TODO: Get Resolution
+  // TODO: Setup Tile sizes
+  //size_t number_of_workers = total_cpu_workers + total_gpu_workers;
   return 0;
 }
 
@@ -255,7 +287,7 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
   if (fractal_map.count(fractal) == 0)
     std::cerr << "unrecognized fractal type" << eom;
   if (! res.opts.count("controllee"))
-    return client(nodes, fractal_map[fractal]);
+    return client(argc, argv, nodes, fractal_map[fractal]);
   auto f = lift(io::remote_actor);
   auto x = explode(controllee, '/') | to_pair;
   auto c = f(oget<0>(x), to_u16(oget<1>(x)));
@@ -320,7 +352,7 @@ public:
     // generate argc/argv pair from remaining arguments
     auto argc = static_cast<int>(args.size()) + 1;
     std::vector<char*> argv;
-    argv.push_back(argv[0]);
+    argv.push_back(argv_[0]);
     for (auto& arg : args)
       argv.push_back(const_cast<char*>(arg.c_str()));
     return fun(*this, connect_nodes(nodes_list), argc, argv.data());

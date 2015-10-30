@@ -93,10 +93,8 @@ set(SOURCES
     src/cec.cpp
     src/config.cpp
     src/main.cpp
-    src/buffer.cpp
     src/imagelabel.cpp
     src/mainwidget.cpp
-    src/serialize_image.cpp
     src/controllerwidget.cpp
     src/server.cpp
     src/calculate_fractal.cpp

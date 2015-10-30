@@ -10,6 +10,9 @@
 
 #include "config.hpp"
 
+#ifndef UTILITY_HPP
+#define UTILITY_HPP
+
 namespace {
 
 class is_invalid_t {
@@ -288,4 +291,6 @@ auto operator|(std::map<K, V> xs, F fun) -> decltype(fun(xs)) {
   return fun(std::move(xs));
 }
 
-} // namespace vector_operators
+} // namespace <container_operators>
+
+#endif // UTILITY_HPP

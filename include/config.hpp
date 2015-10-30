@@ -39,6 +39,7 @@ extern const float default_max_imag;
 extern const float default_zoom;
 
 using fractal_result = std::tuple<std::vector<uint16_t>, // fractal result
-                                  uint32_t>;             // image ID
+                                  uint32_t,              // image ID
+                                  size_t>;               // time took
 
 #endif // CONFIG_HPP

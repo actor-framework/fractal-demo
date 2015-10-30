@@ -4,8 +4,6 @@
 #include <cassert>
 #include <stdexcept>
 
-#include "serialize_image.hpp"
-
 void calculate_palette(caf::atom_value fractal,
                        std::vector<QColor>& storage,
                        uint16_t iterations) {

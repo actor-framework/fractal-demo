@@ -11,6 +11,7 @@
 // fractal-demo extensions to CAF
 #include "caf/cec.hpp"
 #include "caf/maybe.hpp"
+#include "caf/policy/work_sharing.hpp"
 
 #include "caf/experimental/whereis.hpp"
 #include "caf/experimental/announce_actor_type.hpp"
@@ -155,20 +156,6 @@ int controller(int argc, char** argv, const string& client_node,
   return app.exec();
 }
 
-int64_t ask_config(actor config_serv, const char* key) {
-  scoped_actor self;
-  int64_t result = 0;
-  self->sync_send(config_serv, get_atom::value, key).await(
-    [&](ok_atom, string&, message value) {
-      value.apply([&](int64_t res) { result = res; });
-    },
-    others >> [] {
-      // ignore
-    }
-  );
-  return result;
-}
-
 template <class... Ts>
 maybe<actor> remote_spawn(node_id target, string name, Ts&&... xs) {
   maybe<actor> result = actor{invalid_actor};
@@ -207,7 +194,7 @@ int client(int argc, char** argv,
   vector<actor> workers;
   for (auto& node : nodes) {
     auto cs = whereis(config_server_atom::value, node);
-    auto hc = ask_config(cs, "fractal-demo.hardware-concurrency");
+    auto hc = ask_config(cs, "scheduler.max-threads");
     total_cpu_workers += hc;
     repeat(hc, [&] { append(workers,
                             remote_spawn(node, "CPU worker", fractal_type)); });
@@ -307,37 +294,93 @@ bool check(T&& x, const char* error) {
   return false;
 }
 
+enum sched_policy_t {
+  work_stealing_policy,
+  work_sharing_policy
+};
+
+caf::optional<sched_policy_t> sched_policy_from_string(const std::string& str) {
+  if (str == "work-stealing")
+    return work_stealing_policy;
+  if (str == "work-sharing")
+    return work_sharing_policy;
+  return caf::none;
+}
+
+std::string to_string(sched_policy_t x) {
+  if (x == work_sharing_policy)
+    return "work-sharing";
+  return "work-stealing";
+}
+
 class actor_system {
 public:
   actor_system(int argc, char** argv) : argc_(argc), argv_(argv) {
     // nop
   }
 
-  using f0 = std::function<int (actor_system&, int, char**)>;
-  using f1 = std::function<int (actor_system&, std::vector<node_id>, int, char**)>;
+  using f0 = std::function<int (actor_system&, std::vector<std::string>)>;
+  using f1 = std::function<int (actor_system&, std::vector<node_id>, std::vector<std::string>)>;
+  using f2 = std::function<int (actor_system&, int, char**)>;
+  using f3 = std::function<int (actor_system&, std::vector<node_id>, int, char**)>;
 
   int run(f0 fun) {
-    return fun(*this, argc_, argv_);
+    auto f = [fun](actor_system& sys,
+                   std::vector<node_id>,
+                   std::vector<std::string> args) {
+      return fun(sys, std::move(args));
+    };
+    return run(f);
   }
 
   int run(f1 fun) {
     auto sg = detail::make_scope_guard([] {
       shutdown();
     });
-    vector<string> args;
+    auto sched_policy = work_stealing_policy;
+    auto set_sched_policy = [&](const std::string& str) -> bool {
+      auto x = sched_policy_from_string(str);
+      if (x) {
+        sched_policy = *x;
+        return true;
+      }
+      return false;
+    };
+    vector<string> args{argv_[0]};
     string range = default_port_range;
     string bnode;
     string nodes_list;
     string name;
+    size_t nthreads = std::thread::hardware_concurrency();
+    size_t throughput = std::numeric_limits<size_t>::max();
     auto res = message_builder(argv_ + 1, argv_ + argc_).extract_opts({
-      // worker options
-      {"caf-passive-mode", "run in passive mode"},
-      {"caf-slave-name", "set name when running in passive mode", name},
-      {"caf-passive-mode-port-range", "daemon port range [63000-63050]", range},
-      {"caf-bootstrap-node", "set bootstrap node (host/port notation)", bnode},
-      {"caf-slave-nodes", "set slave nodes ('host/port'' notation)", nodes_list}
+      // general CAF options
+      {"caf-scheduler-policy", "scheduler policy", set_sched_policy},
+      {"caf-scheduler-max-throughput", "max scheduler throughput", throughput},
+      {"caf-scheduler-max-threads", "number of scheduler threads", nthreads},
+      // cafrun general options
+      {"caf-bootstrap-node", "bootstrap node in 'host/port' notation", bnode},
+      // cafrun slave options
+      {"caf-slave-mode", "run in slave mode"},
+      {"caf-slave-name", "name when running in slave mode", name},
+      {"caf-slave-mode-port-range", "slave port range [63000-63050]", range},
+      // cafrun master options
+      {"caf-slave-nodes", "slave nodes in 'host/port' notation", nodes_list}
     }, nullptr, true);
-    if (res.opts.count("caf-passive-mode") > 0) {
+    if (! res.error.empty())
+      return std::cerr << res.error << eom;
+    if (sched_policy == work_sharing_policy)
+      set_scheduler<policy::work_sharing>(nthreads, throughput);
+    else
+      set_scheduler<policy::work_stealing>(nthreads, throughput);
+    // FIXME: move application-specifc announce code back to main
+    //        once actor_system_conf is implemented
+    announce_actor_type("CPU worker", cpu_worker);
+    announce_actor_factory("GPU worker", make_gpu_worker);
+    set_config("scheduler.policy", to_string(sched_policy));
+    set_config("scheduler.max-throughput", static_cast<int64_t>(throughput));
+    set_config("scheduler.max-threads", static_cast<int64_t>(nthreads));
+    if (res.opts.count("caf-slave-mode")) {
       auto pr = explode(range, "-") | map(to_u16) | flatten | to_pair;
       auto bslist = explode(bnode, ',');
       optional<actor> bootstrapper;
@@ -349,17 +392,38 @@ public:
       return check(pr, "no valid port range specified")
              && check(res.opts.count("caf-bootstrap-node"), "no bootstrap node")
              && check(bootstrapper, "invalid bootstrap host or port")
-             ? passive_mode(pr->first, pr->second, name, *bootstrapper)
+             ? slave_mode(pr->first, pr->second, name, *bootstrapper)
              : -1;
     }
     res.remainder.extract([&](string& x) { args.emplace_back(std::move(x)); });
     // generate argc/argv pair from remaining arguments
-    auto argc = static_cast<int>(args.size()) + 1;
-    std::vector<char*> argv;
-    argv.push_back(argv_[0]);
-    for (auto& arg : args)
-      argv.push_back(const_cast<char*>(arg.c_str()));
-    return fun(*this, connect_nodes(nodes_list), argc, argv.data());
+    return fun(*this, connect_nodes(nodes_list), std::move(args));
+  }
+
+  int run(f2 fun) {
+    auto f = [fun](actor_system& sys,
+                   std::vector<node_id>,
+                   std::vector<std::string> args) -> int {
+      auto argc = static_cast<int>(args.size());
+      std::vector<char*> argv;
+      for (auto& arg : args)
+        argv.push_back(const_cast<char*>(arg.c_str()));
+      return fun(sys, argc, argv.data());
+    };
+    return run(f);
+  }
+
+  int run(f3 fun) {
+    auto f = [fun](actor_system& sys,
+                   std::vector<node_id> slaves,
+                   std::vector<std::string> args) -> int {
+      auto argc = static_cast<int>(args.size());
+      std::vector<char*> argv;
+      for (auto& arg : args)
+        argv.push_back(const_cast<char*>(arg.c_str()));
+      return fun(sys, std::move(slaves), argc, argv.data());
+    };
+    return run(f);
   }
 
   /// Returns the *unmodified* number of
@@ -373,13 +437,9 @@ public:
     return argv_;
   }
 
-
 private:
-  int passive_mode(uint16_t min_port, uint16_t max_port,
+  int slave_mode(uint16_t min_port, uint16_t max_port,
                    const string& name, actor bootstrapper) {
-    auto cs = whereis(config_server_atom::value);
-    anon_send(cs, put_atom::value, "fractal-demo.hardware-concurrency",
-              make_message(static_cast<int64_t>(std::thread::hardware_concurrency())));
     auto port = open_port_in_range(min_port, max_port);
     if (! port) {
       std::cerr << "unable to open a port in range "
@@ -403,9 +463,6 @@ private:
 };
 
 int main(int argc, char** argv) {
-  riac::announce_message_types();
-  announce_actor_type("CPU worker", cpu_worker);
-  announce_actor_factory("GPU worker", make_gpu_worker);
   actor_system sys{argc, argv};
   return sys.run(run);
 }

@@ -47,6 +47,13 @@ public:
   int cpu_slots;
   int gpu_slots;
 
+  host_desc(std::string host_str, int cpu_slots_val, int gpu_slots_val = 0)
+      : host(std::move(host_str)),
+        cpu_slots(cpu_slots_val),
+        gpu_slots(gpu_slots_val) {
+    // nop
+  }
+
   host_desc(host_desc&&) = default;
   host_desc(const host_desc&) = default;
   host_desc& operator=(host_desc&&) = default;
@@ -58,7 +65,7 @@ public:
       return none;
     host_desc hd;
     hd.host = std::move(xs.front());
-    hd.cpu_slots = static_cast<int>(std::thread::hardware_concurrency());
+    hd.cpu_slots = 0;
     hd.gpu_slots = 0;
     for (auto i = xs.begin() + 1; i != xs.end(); ++i) {
       message_builder{explode(*i, is_any_of("="))}.extract({
@@ -121,11 +128,11 @@ int run_ssh(const string& wdir, const string& cmd, const string& host) {
 }
 
 void bootstrap(const string& wdir,
-               const string& master,
-               const vector<host_desc>& slaves,
+               const host_desc& master,
+               vector<host_desc> slaves,
+               const string& cmd,
                vector<string> args) {
   using io::network::interfaces;
-  auto arg0 = args.front();
   args.erase(args.begin());
   scoped_actor self;
   // open a random port and generate a list of all
@@ -136,12 +143,17 @@ void bootstrap(const string& wdir,
     str += std::to_string(port);
     return str;
   };
+  // run a slave process at master host if user defined slots > 1 for it
+  if (master.cpu_slots > 1)
+    slaves.emplace_back(master.host, master.cpu_slots - 1, master.gpu_slots);
   for (auto& slave : slaves) {
     // build SSH command and pack it to avoid any issue with shell escaping
     std::thread{[=](actor bootstrapper) {
       std::ostringstream oss;
-      oss << arg0
-          << " --caf-passive-mode"
+      oss << cmd;
+      if (slave.cpu_slots > 0)
+          oss << " --caf-scheduler-max-threads=" << slave.cpu_slots;
+      oss << " --caf-slave-mode"
           << " --caf-slave-name=" << slave.host
           << " --caf-bootstrap-node="
           << (interfaces::list_addresses(io::network::protocol::ipv4, false)
@@ -169,31 +181,31 @@ void bootstrap(const string& wdir,
   }
   // run (and wait for) master
   std::ostringstream oss;
-  oss << arg0 << " --caf-slave-nodes=" << slaveslist << " " << join(args, " ");
-  run_ssh(wdir, oss.str(), master);
+  oss << cmd << " --caf-slave-nodes=" << slaveslist << " " << join(args, " ");
+  run_ssh(wdir, oss.str(), master.host);
 }
 
 int main(int argc, char** argv) {
   string hostfile;
   std::unique_ptr<char, void (*)(void*)> pwd{getcwd(nullptr, 0), ::free};
   string wdir;
-  vector<string> args;
-  message_builder{argv + 1, argv + argc}.extract({
+  auto remainder = message_builder{argv + 1, argv + argc}.extract({
     cli_opt({"hostfile", "machinefile"}, hostfile),
     cli_opt({"wdir"}, wdir)
-  }).extract([&](string& x) { args.emplace_back(std::move(x)); });
-  if (args.empty())
-    return cerr << "empty command line" << eom;
-  auto get_wdir = [&]() -> const char* {
-    return (wdir.empty()) ? pwd.get() : wdir.c_str();
-  };
+  });
   if (hostfile.empty())
     return cerr << "no hostfile specified" << eom;
+  if (remainder.empty())
+    return cerr << "empty command line" << eom;
+  auto cmd = std::move(remainder.get_as_mutable<std::string>(0));
+  vector<string> xs;
+  remainder.drop(1).extract([&](string& x) { xs.emplace_back(std::move(x)); });
   auto hosts = read_hostfile(hostfile);
   if (hosts.empty())
     return cerr << "no valid entry in hostfile" << eom;
-  auto master = hosts.front().host;
+  auto master = hosts.front();
   hosts.erase(hosts.begin());
-  bootstrap((wdir.empty()) ? pwd.get() : wdir.c_str(), master, hosts, args);
+  bootstrap((wdir.empty()) ? pwd.get() : wdir.c_str(), master,
+            std::move(hosts), cmd, xs);
   shutdown();
 }

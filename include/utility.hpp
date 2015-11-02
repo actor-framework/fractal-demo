@@ -5,8 +5,11 @@
 #include <utility>
 
 #include "caf/maybe.hpp"
+#include "caf/variant.hpp"
 #include "caf/optional.hpp"
 #include "caf/string_algorithms.hpp"
+
+#include "caf/experimental/whereis.hpp"
 
 #include "config.hpp"
 
@@ -310,6 +313,39 @@ std::string encode_base64(const std::string& str) {
       *j = '=';
   }
   return result;
+}
+
+int64_t ask_config(caf::actor config_serv, const char* key) {
+  caf::scoped_actor self;
+  int64_t result = 0;
+  self->sync_send(config_serv, caf::get_atom::value, key).await(
+    [&](caf::ok_atom, std::string&, caf::message value) {
+      value.apply([&](int64_t res) { result = res; });
+    },
+    caf::others >> [] {
+      // ignore
+    }
+  );
+  return result;
+}
+
+int64_t ask_config(const char* key) {
+  return ask_config(caf::experimental::whereis(caf::atom("ConfigServ")), key);
+}
+
+class message_visitor : public caf::static_visitor<caf::message> {
+public:
+  template <class T>
+  caf::message operator()(T& value) const {
+    return caf::make_message(std::move(value));
+  }
+};
+
+void set_config(const char* key,
+                caf::variant<std::string, double, int64_t, bool> value) {
+  auto cs = caf::experimental::whereis(caf::atom("ConfigServ"));
+  message_visitor mv;
+  anon_send(cs, caf::put_atom::value, key, apply_visitor(mv, value));
 }
 
 namespace container_operators {

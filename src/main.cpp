@@ -208,7 +208,10 @@ int client(int argc, char** argv, const vector<node_id>& nodes,
        << total_gpu_workers << " GPU workers" << endl;
 
   // Get some test values
-  auto clt = spawn<client_actor>(sink);
+  auto clt = spawn<client_actor>(sink,
+                                 3, /* seconds to buffer */
+                                 default_height,
+                                 default_width);
   uint32_t set_size = 30;
   anon_send(clt, calc_weights_atom::value, workers, set_size);
   await_all_actors_done();

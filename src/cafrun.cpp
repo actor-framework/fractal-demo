@@ -133,7 +133,8 @@ void bootstrap(const string& wdir,
                const string& cmd,
                vector<string> args) {
   using io::network::interfaces;
-  args.erase(args.begin());
+  if (! args.empty())
+    args.erase(args.begin());
   scoped_actor self;
   // open a random port and generate a list of all
   // possible addresses slaves can use to connect to us

@@ -27,8 +27,8 @@ class MainWidget : public caf::mixin::actor_widget<QWidget> {
     server_ = server_actor;
   }
 
-  ImageLabel* image_label() const {
-    return imagelabel_;
+  ImageLabel* image_label() {
+    return get(imagelabel_, "imgLabel");
   }
 
  protected:

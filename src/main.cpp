@@ -62,13 +62,13 @@ behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
     [=](uint32_t image_id, uint16_t iterations,
         uint32_t width, uint32_t height, uint32_t offset, uint32_t rows,
         float min_re, float max_re, float min_im, float max_im) -> fractal_result {
-      auto t1 = std::chrono::high_resolution_clock::now();
-      auto result = calculate_fractal(fractal, width, height,
-                                      iterations, offset, rows,
-                                      min_re, max_re, min_im, max_im);
-      auto t2 = std::chrono::high_resolution_clock::now();
-      auto diff = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
-      return std::make_tuple(result, image_id, diff.count());
+      return std::make_tuple(calculate_fractal(fractal, width, height,
+                                               iterations, offset, rows,
+                                               min_re, max_re, min_im, max_im),
+                             image_id);
+    },
+    others() >> [=] {
+      std::cout << to_string(self->current_message()) << std::endl;
     }
   };
 }
@@ -178,8 +178,8 @@ maybe<actor> remote_spawn(node_id target, string name, Ts&&... xs) {
   return result;
 }
 
-int client(int argc, char** argv,
-           const vector<node_id>& nodes, atom_value fractal_type) {
+int client(int argc, char** argv, const vector<node_id>& nodes,
+           atom_value fractal_type, image_sink sink) {
   if (nodes.empty()) {
     std::cerr << "no slave nodes available" << endl;
     return -1;
@@ -206,18 +206,12 @@ int client(int argc, char** argv,
   cout << "run demo on " << nodes.size() << " slave nodes with "
        << total_cpu_workers << " CPU workers and "
        << total_gpu_workers << " GPU workers" << endl;
-  await_all_actors_done();
+
   // Get some test values
-  auto clt = spawn<client_actor>(workers);
-  {
-    scoped_actor self;
-    self->send(clt, test_atom::value, self);
-    self->receive([](size_t best_case, double avarage_case, size_t worst_case) {
-      std::cout << "Best case: "    << best_case    << std::endl
-                << "Avarage case: " << avarage_case << std::endl
-                << "Worst case: "   << worst_case   << std::endl;
-    });
-  }
+  auto clt = spawn<client_actor>(sink);
+  uint32_t set_size = 30;
+  anon_send(clt, calc_weights_atom::value, workers, set_size);
+  await_all_actors_done();
   // Lauch gui
   //anon_send(clt, atom("SetSink"), actor_cast<actor>(*main.mainWidget));
   // TODO: Setup alrogithm based on this values
@@ -276,8 +270,7 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
     sink = make_file_sink(default_iterations);
   else
     sink = make_gui_sink(argc, argv, default_iterations);
-  return client(argc, argv, nodes, fractal_map[fractal]);
-  return 0;
+  return client(argc, argv, nodes, fractal_map[fractal], sink);
 }
 
 template <class T>
@@ -371,6 +364,7 @@ public:
     //        once actor_system_conf is implemented
     announce_actor_type("CPU worker", cpu_worker);
     announce_actor_factory("GPU worker", make_gpu_worker);
+    announce<std::vector<uint16_t>>("frac_result");
     set_config("scheduler.policy", to_string(sched_policy));
     set_config("scheduler.max-throughput", static_cast<int64_t>(throughput));
     set_config("scheduler.max-threads", static_cast<int64_t>(nthreads));

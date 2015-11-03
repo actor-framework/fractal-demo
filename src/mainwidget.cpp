@@ -17,11 +17,10 @@ using namespace caf;
 MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
     : super(parent, f),
       imagelabel_(nullptr) {
-  get(imagelabel_, "imgLabel");
   set_message_handler ([=](local_actor* self) -> message_handler {
     return {
       [=](uint32_t width, const std::vector<uint16_t>& frac) {
-        imagelabel_->setPixmap(width, frac);
+        get(imagelabel_, "imgLabel")->setPixmap(width, frac);
       },
       others >> [=]{
         cerr << "[!!!] mainwidget received unexpected message: "

@@ -4,7 +4,6 @@
 #include <list>
 #include <vector>
 #include <chrono>
-#include <cmath>
 
 #include "caf/all.hpp"
 
@@ -22,8 +21,8 @@ class client_actor : public caf::event_based_actor {
   using worker_sets = std::vector<weight_map>;
   //
   using image_cache = std::vector<std::vector<uint16_t>>;
-  //                      image id       image_cache id + offset
-  using idx_map = std::map<uint32_t, std::pair<uint32_t, uint32_t>>;
+  //                      image id      image_cache id + offset + missing chunks
+  using idx_map = std::map<uint32_t, std::tuple<uint32_t, uint32_t, uint32_t>>;
   //                         image id /  worker_set idx
   using job_goup_map = std::map<uint32_t, size_t>;
 
@@ -58,7 +57,6 @@ private:
     uint32_t rows = image_width_;
     uint32_t shared_rows = 0;
     std::cout << "rows: " << rows << std::endl;
-    size_t last_idx = worker_set.size() - 1;
     size_t current_idx = 0;
     for (auto& e : worker_set) {
       auto& w = e.first;
@@ -75,23 +73,32 @@ private:
                 << " of total " << rows << " rows. (rows_to_share: "
                 << rows_to_share << " , shared_rows: " << shared_rows << ")."
                 << std::endl;
+      // TODO:
+      // - Send chunks
+      // - update job_group_map_
+      // - update idx_map_ !! offset must be bound to the type size !!
     }
     std::cout << "Shared " << shared_rows << " of total " << rows << "."
               << std::endl;
   }
 
   void concat_data(const std::vector<uint16_t>& data, uint32_t id) {
-    // TODO:
-    // lookup id => idx in buffer + offset
-    // (buffer[idx] + offset) = data
+    auto cache_idx    = std::get<0>(idx_map_[id]);
+    auto cache_offset = std::get<1>(idx_map_[id]);
+    auto missing_chunks = (std::get<2>(idx_map_[id]) -= 1);
+    auto& cache_entry = cache_[cache_idx];
+    *(cache_entry.data() + cache_offset) = *data.data();
+    if (missing_chunks == 0) {
+      // TODO: ready to send
+      std::cout << "Image is complete (all chuncks recieved)." << std::endl;
+    }
   }
 
   caf::behavior main_phase() {
     return {
       [=](const std::vector<uint16_t>& data, uint32_t id) {
-        // TODO:
-        // concat_data(...)
-        // send_jobs()
+        concat_data(data, id);
+        send_job(job_group_map_[id]);
       },
       [=](tick_atom) {
         // TODO:
@@ -114,7 +121,7 @@ private:
       [=](const std::vector<uint16_t>& data, uint32_t id) {
         concat_data(data, id);
         if (cache_.size() < buffer_min_size_)
-          send_job(job_goup_map_[id]);
+          send_job(job_group_map_[id]);
         else
           become(main_phase());
       },
@@ -144,7 +151,7 @@ private:
           worker_sets_.push_back(map);
         }
         using hrc = std::chrono::high_resolution_clock;
-        auto req = stream_.next();
+        auto req = stream_.next(); // TODO: Get a image with much black
         uint32_t req_width = width(req);
         uint32_t req_height = height(req);
         auto req_min_re = min_re(req);
@@ -227,7 +234,7 @@ private:
   // buffer
   image_cache cache_;
   idx_map idx_map_;
-  job_goup_map job_goup_map_; // store which group worked on a image
+  job_goup_map job_group_map_; // store which group worked on a image
   uint32_t seconds_to_buffer_;
   uint32_t buffer_min_size_; // minimum entries for 3 secs
                              // ^^ can be used as ringbuffer

@@ -101,6 +101,7 @@ set(SOURCES
     src/main.cpp
     src/imagelabel.cpp
     src/mainwidget.cpp
+    src/image_sink.cpp
     src/controllerwidget.cpp
     src/server.cpp
     src/calculate_fractal.cpp

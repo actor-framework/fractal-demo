@@ -13,10 +13,10 @@
 #include "caf/mixin/actor_widget.hpp"
 
 class MainWidget : public caf::mixin::actor_widget<QWidget> {
+
   Q_OBJECT
 
- public
-slots:
+ public slots:
 
   void jumpTo();
 
@@ -25,6 +25,10 @@ slots:
 
   inline void set_server(const caf::actor& server_actor) {
     server_ = server_actor;
+  }
+
+  ImageLabel* image_label() const {
+    return imagelabel_;
   }
 
  protected:

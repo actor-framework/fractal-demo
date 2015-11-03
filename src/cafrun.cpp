@@ -127,6 +127,8 @@ int run_ssh(const string& wdir, const string& cmd, const string& host) {
   return 0;
 }
 
+
+
 void bootstrap(const string& wdir,
                const host_desc& master,
                vector<host_desc> slaves,
@@ -139,15 +141,11 @@ void bootstrap(const string& wdir,
   // open a random port and generate a list of all
   // possible addresses slaves can use to connect to us
   auto port = io::publish(self, 0);
-  auto add_port = [=](auto str) {
-    str += "/";
-    str += std::to_string(port);
-    return str;
-  };
   // run a slave process at master host if user defined slots > 1 for it
   if (master.cpu_slots > 1)
     slaves.emplace_back(master.host, master.cpu_slots - 1, master.gpu_slots);
   for (auto& slave : slaves) {
+    using namespace caf::io::network;
     // build SSH command and pack it to avoid any issue with shell escaping
     std::thread{[=](actor bootstrapper) {
       std::ostringstream oss;
@@ -156,11 +154,20 @@ void bootstrap(const string& wdir,
           oss << " --caf-scheduler-max-threads=" << slave.cpu_slots;
       oss << " --caf-slave-mode"
           << " --caf-slave-name=" << slave.host
-          << " --caf-bootstrap-node="
-          << (interfaces::list_addresses(io::network::protocol::ipv4, false)
-              + interfaces::list_addresses(io::network::protocol::ipv6, false)
-              | map(add_port) | [](auto xs) { return join(xs, ","); })
-          << " " << join(args, " ");
+          << " --caf-bootstrap-node=";
+      bool is_first = true;
+      interfaces::traverse({protocol::ipv4, protocol::ipv6},
+                           [&](const char*, protocol, bool lo, const char* x) {
+        if (lo)
+          return;
+        if (! is_first)
+          oss << ",";
+        else
+          is_first = false;
+        oss << x << "/" << port;
+      });
+      for (auto& arg : args)
+        oss << " " << arg;
       if (run_ssh(wdir, oss.str(), slave.host) != 0)
         anon_send(bootstrapper, error_atom::value, slave.host);
     }, actor{self}}.detach();

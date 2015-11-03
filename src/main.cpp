@@ -1,9 +1,5 @@
 #include <unistd.h>
 
-#include <QByteArray>
-#include <QMainWindow>
-#include <QApplication>
-
 #include "caf/all.hpp"
 #include "caf/io/all.hpp"
 #include "caf/riac/all.hpp"
@@ -17,11 +13,12 @@
 #include "caf/experimental/announce_actor_type.hpp"
 
 #include "atoms.hpp"
-#include "ui_main.h"
+
 #include "server.hpp"
 #include "utility.hpp"
 #include "controller.hpp"
-#include "mainwidget.hpp"
+#include "image_sink.hpp"
+
 #include "projection.hpp"
 #include "client_actor.hpp"
 #include "calculate_fractal.hpp"
@@ -63,13 +60,12 @@ behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
     return {};
   return {
     [=](uint32_t image_id, uint16_t iterations,
-        uint32_t width, uint32_t height, float min_re, float max_re,
-        float min_im, float max_im) -> fractal_result {
+        uint32_t width, uint32_t height, uint32_t offset, uint32_t rows,
+        float min_re, float max_re, float min_im, float max_im) -> fractal_result {
       auto t1 = std::chrono::high_resolution_clock::now();
       auto result = calculate_fractal(fractal, width, height,
-                                      iterations,
-                                      min_re, max_re,
-                                      min_im, max_im);
+                                      iterations, offset, rows,
+                                      min_re, max_re, min_im, max_im);
       auto t2 = std::chrono::high_resolution_clock::now();
       auto diff = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
       return std::make_tuple(result, image_id, diff.count());
@@ -210,6 +206,7 @@ int client(int argc, char** argv,
   cout << "run demo on " << nodes.size() << " slave nodes with "
        << total_cpu_workers << " CPU workers and "
        << total_gpu_workers << " GPU workers" << endl;
+  await_all_actors_done();
   // Get some test values
   auto clt = spawn<client_actor>(workers);
   {
@@ -222,16 +219,7 @@ int client(int argc, char** argv,
     });
   }
   // Lauch gui
-  QApplication app{argc, argv};
-  QMainWindow window;
-  Ui::Main main;
-  main.setupUi(&window);
-  window.resize(default_width, default_height);
   //anon_send(clt, atom("SetSink"), actor_cast<actor>(*main.mainWidget));
-  anon_send(clt, atom("SetSink"), main.mainWidget->as_actor());
-  window.show();
-  app.quitOnLastWindowClosed();
-  app.exec();
   // TODO: Setup alrogithm based on this values
   // TODO: Get Resolution
   // TODO: Setup Tile sizes
@@ -278,11 +266,17 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
   });
   if (fractal_map.count(fractal) == 0)
     std::cerr << "unrecognized fractal type" << eom;
-  if (! res.opts.count("controllee"))
-    return client(argc, argv, nodes, fractal_map[fractal]);
-  auto f = lift(io::remote_actor);
-  auto x = explode(controllee, '/') | to_pair;
-  auto c = f(oget<0>(x), to_u16(oget<1>(x)));
+  if (res.opts.count("controllee")) {
+    auto f = lift(io::remote_actor);
+    auto x = explode(controllee, '/') | to_pair;
+    auto c = f(oget<0>(x), to_u16(oget<1>(x)));
+  }
+  image_sink sink;
+  if (res.opts.count("no-gui"))
+    sink = make_file_sink(default_iterations);
+  else
+    sink = make_gui_sink(argc, argv, default_iterations);
+  return client(argc, argv, nodes, fractal_map[fractal]);
   return 0;
 }
 

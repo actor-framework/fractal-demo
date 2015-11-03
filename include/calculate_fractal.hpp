@@ -16,6 +16,7 @@ const char* calculate_fractal_kernel(caf::atom_value fractal);
 
 std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
                                         uint32_t width, uint32_t height,
+                                        uint32_t offset, uint32_t rows,
                                         uint16_t max_iterations,
                                         float min_re, float max_re,
                                         float min_im, float max_im);

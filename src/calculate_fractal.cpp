@@ -175,17 +175,19 @@ const char* calculate_fractal_kernel(caf::atom_value fractal) {
 
 std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
                                         uint32_t width, uint32_t height,
+                                        uint32_t offset, uint32_t rows,
                                         uint16_t max_iterations,
                                         float min_re, float max_re,
                                         float min_im, float max_im) {
-  std::vector<uint16_t> result(width * height);
+  const auto min_y = offset;
+  const auto max_y = min_y + rows;
+  std::vector<uint16_t> result(width * rows);
   auto re_factor = (max_re - min_re) / (width - 1);
   auto ifactor_ = (max_im - min_im) / (height - 1);
-  // local variables for calculating fractal images
   switch (static_cast<uint64_t>(fractal)) {
     case mandelbrot_atom::uint_value():
-      for (uint32_t x = 0; x < width; ++x) {
-        for (uint32_t y = 0; y < height; ++y) {
+      for (uint32_t y = min_y; y < max_y; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
           auto z_re = min_re + x * re_factor;
           auto z_im = max_im - y * ifactor_;
           auto const_re = z_re;
@@ -200,13 +202,13 @@ std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
             cond = z_re * z_re + z_im * z_im;
             ++iteration;
           } while (iteration < max_iterations && cond <= 4.0f);
-          result[x + y * width] = iteration;
+          result[x + (y * width)] = iteration;
         }
       }
       break;
     case burnship_atom::uint_value():
-      for (uint32_t x = 0; x < width; ++x) {
-        for (uint32_t y = 0; y < height; ++y) {
+      for (uint32_t y = min_y; y < max_y; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
           auto z_re = min_re + x * re_factor;
           auto z_im = max_im - y * ifactor_;
           auto const_re = z_re;
@@ -221,13 +223,13 @@ std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
             cond = (fabs(tmp_re) + fabs(tmp_im)) * (fabs(tmp_re) + fabs(tmp_im));
             ++iteration;
           } while (iteration < max_iterations && cond <= 4.0f);
-          result[x + y * width] = iteration;
+          result[x + (y * width)] = iteration;
         }
       }
       break;
     case tricorn_atom::uint_value():
-      for (uint32_t x = 0; x < width; ++x) {
-        for (uint32_t y = 0; y < height; ++y) {
+      for (uint32_t y = min_y; y < max_y; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
           auto z_re = min_re + x * re_factor;
           auto z_im = max_im - y * ifactor_;
           auto const_re = z_re;
@@ -242,13 +244,13 @@ std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
             cond = z_re * z_re + z_im * z_im;
             ++iteration;
           } while (iteration < max_iterations && cond <= 4.0f);
-          result[x + y * width] = iteration;
+          result[x + (y * width)] = iteration;
         }
       }
       break;
     case julia_atom::uint_value():
-      for (uint32_t x = 0; x < width; ++x) {
-        for (uint32_t y = 0; y < height; ++y) {
+      for (uint32_t y = min_y; y < max_y; ++y) {
+        for (uint32_t x = 0; x < width; ++x) {
           auto z_re = min_re + x * re_factor;
           auto z_im = max_im - y * ifactor_;
           auto const_re = z_re;
@@ -263,7 +265,7 @@ std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
             cond = (fabs(tmp_re) + fabs(tmp_im)) * (fabs(tmp_re) + fabs(tmp_im));
             ++iteration;
           } while (iteration < max_iterations && cond <= 4.0f);
-          result[x + y * width] = iteration;
+          result[x + (y * width)] = iteration;
         }
       }
       break;

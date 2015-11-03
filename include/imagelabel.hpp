@@ -1,25 +1,29 @@
 #ifndef IMAGE_LABEL_HPP
 #define IMAGE_LABEL_HPP
 
+#include <vector>
+
 #include <QImage>
 #include <QLabel>
 #include <QWidget>
 #include <QResizeEvent>
 
 class ImageLabel : public QLabel {
+private:
+  Q_OBJECT
 
-    Q_OBJECT
+public slots:
+  /// Displays given fractal image.
+  void setPixmap(uint32_t width, const std::vector<uint16_t>& fractal);
 
- public slots:
+  /// Calculates the color palette for rendering fractal images.
+  void newPalette(uint32_t iterations);
 
-    void setPixmapFromByteArray(QByteArray);
+public:
+  ImageLabel(QWidget* parent = nullptr, Qt::WindowFlags f = 0);
 
- public:
-
-    inline ImageLabel(QWidget * parent = 0, Qt::WindowFlags f = 0)
-    : QLabel(parent, f) { }
-
+private:
+  std::vector<QColor> palette_;
 };
 
 #endif
-

@@ -82,6 +82,12 @@ endif ()
 
 add_definitions("-DENABLE_OPENCL")
 
+# -pthread is ignored on MacOSX but required on other platforms
+if(NOT APPLE AND NOT WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread")
+endif()
+
 qt5_wrap_ui(UI_HDRS controller.ui main.ui)
 
 # we need this to be able to include headers produced by uic in our code

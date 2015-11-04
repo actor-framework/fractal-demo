@@ -42,11 +42,7 @@ image_sink make_file_sink(uint32_t init_iterations) {
     calculate_color_palette(self->state.palette, init_iterations);
     return [=](uint32_t width, const std::vector<uint16_t>& frac) {
       auto image = image_from_fractal(width, frac, self->state.palette);
-      auto resu = image.save(QString("fractal-%1.png").arg(self->state.image_nr++));
-      if (! resu)
-        std::cout << "Write image failed" << std::endl;
-      else
-        std::cout << "Write image succeed" << std::endl;
+      image.save(QString("fractal-%1.png").arg(self->state.image_nr++));
     };
   });
 }

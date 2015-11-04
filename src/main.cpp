@@ -59,16 +59,13 @@ behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
   if (! valid_fractal_type(fractal))
     return {};
   return {
-    [=](uint32_t image_id, uint16_t iterations,
+    [=](uint16_t iterations,
         uint32_t width, uint32_t height, uint32_t offset, uint32_t rows,
         float min_re, float max_re, float min_im, float max_im) -> fractal_result {
       return std::make_tuple(calculate_fractal(fractal, width, height,
                                                offset, rows, iterations,
                                                min_re, max_re, min_im, max_im),
-                             image_id);
-    },
-    others() >> [=] {
-      std::cout << to_string(self->current_message()) << std::endl;
+                             offset);
     }
   };
 }

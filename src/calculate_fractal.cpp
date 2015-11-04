@@ -202,7 +202,7 @@ std::vector<uint16_t> calculate_fractal(caf::atom_value fractal,
             cond = z_re * z_re + z_im * z_im;
             ++iteration;
           } while (iteration < max_iterations && cond <= 4.0f);
-          result[x + (y * width)] = iteration;
+          result[x + ((y - min_y) * width)] = iteration;
         }
       }
       break;

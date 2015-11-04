@@ -42,7 +42,11 @@ image_sink make_file_sink(uint32_t init_iterations) {
     calculate_color_palette(self->state.palette, init_iterations);
     return [=](uint32_t width, const std::vector<uint16_t>& frac) {
       auto image = image_from_fractal(width, frac, self->state.palette);
-      image.save(QString("fractal-%1.png").arg(self->state.image_nr++));
+      auto resu = image.save(QString("fractal-%1.png").arg(self->state.image_nr++));
+      if (! resu)
+        std::cout << "Write image failed" << std::endl;
+      else
+        std::cout << "Write image succeed" << std::endl;
     };
   });
 }
@@ -50,11 +54,12 @@ image_sink make_file_sink(uint32_t init_iterations) {
 QImage image_from_fractal(uint32_t width,
                           const std::vector<uint16_t>& frac,
                           const std::vector<QColor>& palette) {
-  QImage image(QSize{static_cast<int>(width),
-                     static_cast<int>(frac.size() / width)},
+  QImage image(static_cast<int>(width), static_cast<int>(frac.size() / width),
                QImage::Format_RGB32);
-  for (int i = 0; i < static_cast<int>(frac.size()); ++i)
-    image.setColor(i, palette[frac[i]].rgb());
+  size_t idx = 0;
+  for (size_t y = 0; y < frac.size() / width; ++y)
+    for (size_t x = 0; x < width; ++x)
+      image.setPixel(x, y, palette[frac[idx++]].rgb());
   return image;
 }
 

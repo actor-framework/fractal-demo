@@ -30,7 +30,7 @@ extern const char* default_port_range;
 
 extern const std::uint32_t default_width;
 extern const std::uint32_t default_height;
-extern const std::uint32_t default_iterations;
+extern const std::uint16_t default_iterations;
 
 extern const float default_min_real;
 extern const float default_max_real;

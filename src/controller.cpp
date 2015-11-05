@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
   if (res.opts.count("server")) {
     auto f = lift(io::remote_actor);
     auto x = explode(server, '/') | to_pair;
-    auto s = f(oget<0>(x), to_u16(oget<1>(x)));
+    auto s = f(mget<0>(x), to_u16(mget<1>(x)));
     if (s)
       controller(argc, argv, *s);
     else

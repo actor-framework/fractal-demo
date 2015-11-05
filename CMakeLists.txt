@@ -98,7 +98,6 @@ include_directories(. include ${CMAKE_BINARY_DIR} ${CAF_INCLUDE_DIRS} ${OPENCL_I
 set(SOURCES
     src/cec.cpp
     src/config.cpp
-    src/main.cpp
     src/imagelabel.cpp
     src/mainwidget.cpp
     src/image_sink.cpp
@@ -106,14 +105,17 @@ set(SOURCES
     src/server.cpp
     src/calculate_fractal.cpp
     src/atoms.cpp
-    src/fractal_request_stream.cpp
-    src/controller.cpp)
+    src/fractal_request_stream.cpp)
 
 file(GLOB HEADERS "include/*.hpp" "caf/*.hpp")
 
-add_executable(fractal-demo ${SOURCES} ${HEADERS} ${UI_HDRS})
+add_executable(fractal-demo src/main.cpp ${SOURCES} ${HEADERS} ${UI_HDRS})
 target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OPENCL_LIBRARIES})
 qt5_use_modules(fractal-demo Widgets)
 
 add_executable(cafrun src/cafrun.cpp)
 target_link_libraries(cafrun ${CMAKE_DL_LIBS} ${CAF_LIBRARIES})
+
+add_executable(controller src/controller.cpp ${SOURCES} ${HEADERS} ${UI_HDRS})
+target_link_libraries(controller ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES})
+qt5_use_modules(controller Widgets)

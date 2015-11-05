@@ -2,11 +2,79 @@
 #include <iterator>
 #include <algorithm>
 
-#include "include/controller.hpp"
+#include "caf/all.hpp"
+#include "caf/io/all.hpp"
+
+#include "atoms.hpp"
+#include "utility.hpp"
+
+#include "ui_controller.h"
+#include "controllerwidget.hpp"
 
 using namespace std;
 using namespace caf;
+using namespace caf::experimental;
 
+// from utility, allows "explode(...) | map(...) | ..."
+using namespace container_operators;
+
+class controller_actor : public event_based_actor {
+public:
+  controller_actor(actor& server) : server_(server) {
+    // nop
+  }
+
+private:
+  behavior make_behavior() override {
+    return {
+      others() >> [=] {
+        // Just forward everything to server...
+        forward_to(server_);
+      }
+    };
+  }
+
+  actor server_;
+};
+
+void controller(int argc, char** argv, caf::actor& server) {
+  auto ctrl = spawn<controller_actor>(server);
+  QApplication app{argc, argv};
+  QMainWindow window;
+  Ui::Controller ctrl_ui;
+  ctrl_ui.setupUi(&window);
+  auto ctrl_widget = ctrl_ui.controllerWidget;
+  ctrl_widget->set_controller(ctrl);
+  ctrl_widget->initialize();
+  window.show();
+  app.quitOnLastWindowClosed();
+  app.exec();
+  await_all_actors_done();
+  shutdown();
+}
+
+int main(int argc, char** argv) {
+  string server;
+  auto res = message_builder(argv + 1, argv + argc).extract_opts({
+    {"server,s", "server ('host/port' notation)", server}
+  });
+  auto exit = [&] {
+    std::cerr << res.helptext << std::endl;
+  };
+  if (res.opts.count("server")) {
+    auto f = lift(io::remote_actor);
+    auto x = explode(server, '/') | to_pair;
+    auto s = f(oget<0>(x), to_u16(oget<1>(x)));
+    if (s)
+      controller(argc, argv, *s);
+    else
+      exit();
+  } else
+    exit();
+  return 0;
+}
+
+/*
 controller::controller(actor server)
     : server_(server),
       use_normal_(0),
@@ -97,3 +165,4 @@ behavior controller::make_behavior() {
     }
   };
 }
+*/

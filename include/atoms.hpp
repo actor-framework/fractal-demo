@@ -35,4 +35,12 @@ using iterations_atom = caf::atom_constant<caf::atom("iterations")>;
 using calc_weights_atom = caf::atom_constant<caf::atom("weights")>;
 using tick_atom = caf::atom_constant<caf::atom("tick")>;
 
+using resize_atom = caf::atom_constant<caf::atom("resize")>;
+using max_cpu_atom = caf::atom_constant<caf::atom("max_cpu")>;
+using max_gpu_atom = caf::atom_constant<caf::atom("max_gpu")>;
+using fps_atom = caf::atom_constant<caf::atom("fps_atom")>;
+using limit_atom = caf::atom_constant<caf::atom("limit")>;
+using normal_atom = caf::atom_constant<caf::atom("normal")>;
+using opencl_atom = caf::atom_constant<caf::atom("opencl")>;
+
 #endif // FRACTAL_DEMO_ATOMS_HPP

@@ -21,6 +21,7 @@ MainWidget::MainWidget(QWidget* parent, Qt::WindowFlags f)
     return {
       [=](uint32_t width, const std::vector<uint16_t>& frac) {
         get(imagelabel_, "imgLabel")->setPixmap(width, frac);
+        window()->resize(width, frac.size() / width);
       },
       others >> [=]{
         cerr << "[!!!] mainwidget received unexpected message: "

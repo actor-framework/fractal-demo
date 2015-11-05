@@ -91,6 +91,24 @@ private:
     }
   }
 
+  void resize(uint32_t width, uint32_t height) {
+    image_width_ = width;
+    image_height_ = height;
+    image_size_ = image_width_ * image_height_;
+    std::vector<caf::actor> worker_set;
+    for (auto& w : workers_)
+      worker_set.push_back(w.first);
+    stream_.init(width,
+                 height,
+                 default_min_real,
+                 default_max_real,
+                 default_min_imag,
+                 default_max_imag,
+                 default_zoom);
+    become(make_behavior());
+    send(this, calc_weights_atom::value, worker_set, worker_set.size());
+  };
+
   caf::behavior main_phase() {
     send(this, tick_atom::value);
     return {
@@ -105,9 +123,14 @@ private:
         }
         send(sink_, image_width_, cache_.front());
         cache_.pop();
-        std::cout << "Cache size: " << cache_.size() << std::endl;
         if (cache_.size() < buffer_max_size_)
           send_job();
+      },
+      [=](resize_atom, uint32_t w, uint32_t h) {
+        resize(w,h);
+      },
+      caf::others() >> [=] {
+        std::cout << to_string(current_message()) << std::endl;
       }
     };
   }
@@ -128,6 +151,12 @@ private:
             become(main_phase());
           }
         }
+      },
+      [=](resize_atom, uint32_t w, uint32_t h) {
+        resize(w,h);
+      },
+      caf::others() >> [=] {
+        std::cout << to_string(current_message()) << std::endl;
       }
     };
   }
@@ -141,9 +170,16 @@ private:
                        >();
     return {
       [=](calc_weights_atom, const std::vector<caf::actor>& workers,
-          uint32_t workers_per_set) {
-        for (auto& w : workers)
-          workers_.emplace(w, 0);
+          size_t workers_to_use) {
+        // Clear all caches
+        chunk_cache_.clear();
+        image_cache empty;
+        std::swap(cache_, empty);
+        start_map->clear();
+        workers_.clear();
+        //
+        for (size_t i = 0; i < workers_to_use; ++i)
+          workers_.emplace(workers[i], 0);
         using hrc = std::chrono::high_resolution_clock;
         auto req = stream_.next(); // TODO: Get a image with much black
         uint32_t req_width = width(req);
@@ -161,7 +197,8 @@ private:
                offset, rows, req_min_re, req_max_re, req_min_im, req_max_im);
         }
       },
-      [=](const std::vector<uint16_t>&, uint32_t) {
+      [=](const std::vector<uint16_t>& data, uint32_t) {
+        if (data.size() != image_size_) return; // old data TODO: Problem with 1 worker?
         auto sender = caf::actor_cast<caf::actor>(current_sender());
         auto t2 = std::chrono::high_resolution_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - (*start_map)[sender]).count();
@@ -183,10 +220,16 @@ private:
           std::cout << "Assumed FPS: " << fps << std::endl;
           buffer_min_size_ = fps < 1 ? static_cast<uint32_t>(1.0 / fps)
                                      : static_cast<uint32_t>(fps);
-          buffer_min_size_ *= seconds_to_buffer_;
+          buffer_min_size_ *= seconds_to_buffer_; // FIXME
           buffer_max_size_ = buffer_min_size_ * 4;
           become(init_buffer());
         }
+      },
+      [=](resize_atom, uint32_t w, uint32_t h) {
+        resize(w,h);
+      },
+      caf::others() >> [=] {
+        std::cout << to_string(current_message()) << std::endl;
       }
     };
   }

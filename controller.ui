@@ -265,7 +265,11 @@
      </spacer>
     </item>
     <item>
-     <widget class="QComboBox" name="drop_down_fractal_type"/>
+     <widget class="QComboBox" name="drop_down_fractal_type">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>

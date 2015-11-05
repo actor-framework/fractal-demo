@@ -64,6 +64,8 @@ void ControllerWidget::initialize() {
   cpu_slider()->setTickPosition(QSlider::TicksBelow);
   gpu_slider()->setTickInterval(1);
   gpu_slider()->setTickPosition(QSlider::TicksBelow);
+  // TODO: Not implemented yet, so make this invisible
+  drop_down_fractal_type()->setVisible(false);
 }
 
 

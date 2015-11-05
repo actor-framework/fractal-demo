@@ -38,6 +38,8 @@ extern const float default_min_imag;
 extern const float default_max_imag;
 extern const float default_zoom;
 
+extern const int default_color;
+
 using fractal_result = std::tuple<std::vector<uint16_t>, // fractal result
                                   uint32_t>;             // image ID
 

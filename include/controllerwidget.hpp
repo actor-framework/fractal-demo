@@ -26,6 +26,7 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
     void adjustCPULimit(int newLimit);
     void adjustResolution(int idx);
     void adjustFractals(const QString& valid_fractal);
+    void adjustColor(int newColor);
 
  private:
   template <typename T>
@@ -62,6 +63,10 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
     return get(time_current_, "time_current");
   }
 
+  inline QSlider* color_slider() {
+    return get(color_slider_, "color_slider");
+  }
+
   inline void set_cpu_max(size_t max) {
     cpu_slider()->setRange(0, static_cast<int>(max));
     cpu_slider()->setTickInterval(1);
@@ -94,6 +99,7 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
   QSlider* cpu_slider_;
   QSlider* gpu_slider_;
   QSlider* resolution_slider_;
+  QSlider* color_slider_;
 
   QLabel* res_current_;
   QLabel* time_current_;

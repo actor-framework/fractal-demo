@@ -5,8 +5,11 @@
 #include <iterator>
 #include <algorithm>
 
+#include <iostream>
+
 #include "caf/all.hpp"
 
+#include "include/config.hpp"
 #include "include/controllerwidget.hpp"
 
 using namespace std;
@@ -17,6 +20,7 @@ ControllerWidget::ControllerWidget(QWidget* parent, Qt::WindowFlags f)
       cpu_slider_(nullptr),
       gpu_slider_(nullptr),
       resolution_slider_(nullptr),
+      color_slider_(nullptr),
       res_current_(nullptr),
       time_current_(nullptr),
       drop_down_fractal_type_(nullptr),
@@ -66,6 +70,10 @@ void ControllerWidget::initialize() {
   gpu_slider()->setTickPosition(QSlider::TicksBelow);
   // TODO: Not implemented yet, so make this invisible
   drop_down_fractal_type()->setVisible(false);
+  color_slider()->setRange(0, 359);
+  color_slider()->setTickInterval(1);
+  color_slider()->setTickPosition(QSlider::TicksBelow);
+  color_slider()->setValue(default_color); // 180 is default color
 }
 
 
@@ -94,4 +102,8 @@ void ControllerWidget::adjustFractals(const QString& fractal) {
     send_as(as_actor(), controller_, atom("changefrac"),
             valid_fractal_[fractal.toStdString()]);
   }
+}
+
+void ControllerWidget::adjustColor(int newColor) {
+  std::cout << "Adjust color: " << newColor << std::endl;
 }

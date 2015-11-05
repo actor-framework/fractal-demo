@@ -17,7 +17,7 @@ public slots:
   void setPixmap(uint32_t width, const std::vector<uint16_t>& fractal);
 
   /// Calculates the color palette for rendering fractal images.
-  void newPalette(uint32_t iterations);
+  void newPalette(uint32_t iterations, int color);
 
 public:
   ImageLabel(QWidget* parent = nullptr, Qt::WindowFlags f = 0);

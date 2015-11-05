@@ -16,3 +16,5 @@ const float default_max_imag = default_min_imag
                                   * default_height
                                   / default_width;
 const float default_zoom     = 0.9; // must be >= 0.0
+
+const int default_color = 180; // range from 0 to 359 (hsv)

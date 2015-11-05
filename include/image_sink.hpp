@@ -19,7 +19,8 @@ QImage image_from_fractal(uint32_t width,
                           const std::vector<uint16_t>& frac,
                           const std::vector<QColor>& palette);
 
-void calculate_color_palette(std::vector<QColor>& storage, uint16_t iterations);
+void calculate_color_palette(std::vector<QColor>& storage, uint16_t iterations,
+                             int color);
 
 /// Creates a GUI frontend for the user for displaying fractals.
 image_sink make_gui_sink(int argc, char** argv, uint32_t iterations);

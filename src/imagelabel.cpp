@@ -16,8 +16,8 @@ void ImageLabel::setPixmap(uint32_t width, const std::vector<uint16_t>& frac) {
                                                           palette_)));
 }
 
-void ImageLabel::newPalette(uint32_t iterations) {
-  calculate_color_palette(palette_, iterations);
+void ImageLabel::newPalette(uint32_t iterations, int color) {
+  calculate_color_palette(palette_, iterations, color);
 }
 
 ImageLabel::ImageLabel(QWidget* parent, Qt::WindowFlags f) : QLabel(parent, f) {

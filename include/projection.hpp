@@ -4,10 +4,10 @@
 #include <string>
 #include <type_traits>
 
-#include "caf/optional.hpp"
+#include "caf/maybe.hpp"
 
 template<typename T>
-caf::optional<T> projection(const std::string& arg) {
+caf::maybe<T> projection(const std::string& arg) {
     char* endptr = nullptr;
     int result = std::is_integral<T>::value
                ? static_cast<T>(strtoll(arg.c_str(), &endptr, 10))

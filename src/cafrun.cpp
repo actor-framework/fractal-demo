@@ -30,7 +30,7 @@ bool opt_cmp(csi first, csi last, const char* cstr) {
 }
 
 auto cli_opt(std::initializer_list<const char*> xs, string& storage) {
-  auto f = [=](const std::string& str) -> optional<const std::string&> {
+  auto f = [=](const std::string& str) -> maybe<const std::string&> {
     for (auto x : xs)
       if (opt_cmp(str.begin(), str.end(), x))
         return str;
@@ -59,7 +59,7 @@ public:
   host_desc& operator=(host_desc&&) = default;
   host_desc& operator=(const host_desc&) = default;
 
-  static optional<host_desc> from_string(const std::string& line) {
+  static maybe<host_desc> from_string(const std::string& line) {
     auto xs = explode(line, is_any_of(" "), token_compress_on);
     if (xs.empty())
       return none;

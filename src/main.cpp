@@ -71,7 +71,7 @@ behavior cpu_worker(stateful_actor<cpu_worker_state>* self,
 }
 
 template <class F, class Atom, class... Ts>
-optional<uint16_t> x_in_range(uint16_t min_port, uint16_t max_port,
+maybe<uint16_t> x_in_range(uint16_t min_port, uint16_t max_port,
                 F fun, Atom op, const Ts&... xs) {
   scoped_actor self;
   auto mm = io::get_middleman_actor();
@@ -90,14 +90,14 @@ optional<uint16_t> x_in_range(uint16_t min_port, uint16_t max_port,
   return none;
 }
 
-optional<uint16_t> open_port_in_range(uint16_t min_port, uint16_t max_port) {
+maybe<uint16_t> open_port_in_range(uint16_t min_port, uint16_t max_port) {
   auto f = [](ok_atom, uint16_t actual_port) {
     std::cout << "running in passive mode on port " << actual_port << endl;
   };
   return x_in_range(min_port, max_port, f, open_atom::value, "", false);
 }
 
-optional<uint16_t> publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
+maybe<uint16_t> publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
   auto f = [](ok_atom, uint16_t actual_port) {
     std::cout << "running in passive mode on port " << actual_port << endl;
   };
@@ -123,7 +123,7 @@ std::pair<node_id, actor_addr> connect_node(const string& node, uint16_t port) {
 }
 
 std::pair<node_id, actor_addr>
-connect_node(const optional<std::pair<string, string>>& x) {
+connect_node(const maybe<std::pair<string, string>>& x) {
   if (! x)
     return {};
   auto port = to_u16(x->second);
@@ -263,7 +263,7 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
   if (res.opts.count("controllee")) {
     auto f = lift(io::remote_actor);
     auto x = explode(controllee, '/') | to_pair;
-    auto c = f(oget<0>(x), to_u16(oget<1>(x)));
+    auto c = f(mget<0>(x), to_u16(mget<1>(x)));
   }
   image_sink sink;
   if (res.opts.count("no-gui"))
@@ -286,7 +286,7 @@ enum sched_policy_t {
   work_sharing_policy
 };
 
-caf::optional<sched_policy_t> sched_policy_from_string(const std::string& str) {
+caf::maybe<sched_policy_t> sched_policy_from_string(const std::string& str) {
   if (str == "work-stealing")
     return work_stealing_policy;
   if (str == "work-sharing")
@@ -371,11 +371,11 @@ public:
     if (res.opts.count("caf-slave-mode")) {
       auto pr = explode(range, "-") | map(to_u16) | flatten | to_pair;
       auto bslist = explode(bnode, ',');
-      optional<actor> bootstrapper;
+      maybe<actor> bootstrapper;
       auto f = lift(io::remote_actor);
       for (auto i = bslist.begin(); i != bslist.end() && ! bootstrapper; ++i) {
         auto x = explode(*i, '/') | to_pair;
-        bootstrapper = f(oget<0>(x), to_u16(oget<1>(x)));
+        bootstrapper = f(mget<0>(x), to_u16(mget<1>(x)));
       }
       return check(pr, "no valid port range specified")
              && check(res.opts.count("caf-bootstrap-node"), "no bootstrap node")

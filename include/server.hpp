@@ -18,7 +18,7 @@ class server : public caf::event_based_actor {
 
   struct worker_entry {
     caf::actor handle;
-    caf::optional<job_id> assigned_job;
+    caf::maybe<job_id> assigned_job;
   };
 
   server(caf::atom_value fractal_type);

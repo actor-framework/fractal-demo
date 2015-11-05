@@ -6,7 +6,7 @@
 
 #include "caf/maybe.hpp"
 #include "caf/variant.hpp"
-#include "caf/optional.hpp"
+#include "caf/maybe.hpp"
 #include "caf/string_algorithms.hpp"
 
 #include "caf/experimental/whereis.hpp"
@@ -26,11 +26,6 @@ public:
 
   template <class T>
   bool operator()(const caf::maybe<T>& x) const {
-    return ! x;
-  }
-
-  template <class T>
-  bool operator()(const caf::optional<T>& x) const {
     return ! x;
   }
 
@@ -88,14 +83,14 @@ auto map(F f) {
 }
 
 auto to_pair = [](const auto& xs)
--> caf::optional<decltype(std::make_pair(xs.front(), xs.back()))> {
+-> caf::maybe<decltype(std::make_pair(xs.front(), xs.back()))> {
   if (xs.size() != 2)
     return caf::none;
   return std::make_pair(xs.front(), xs.back());
 };
 
 template <class T>
-caf::optional<T> to_uint(caf::optional<const std::string&> x) {
+caf::maybe<T> to_uint(caf::maybe<const std::string&> x) {
   if (! x)
     return caf::none;
   auto& str = *x;
@@ -107,20 +102,20 @@ caf::optional<T> to_uint(caf::optional<const std::string&> x) {
   return caf::none;
 }
 
-caf::optional<uint16_t> to_u16(caf::optional<const std::string&> x) {
+caf::maybe<uint16_t> to_u16(caf::maybe<const std::string&> x) {
   return to_uint<uint16_t>(x);
 }
 
-caf::optional<uint32_t> to_u32(caf::optional<const std::string&> x) {
+caf::maybe<uint32_t> to_u32(caf::maybe<const std::string&> x) {
   return to_uint<uint32_t>(x);
 }
 
-caf::optional<uint64_t> to_u64(caf::optional<const std::string&> x) {
+caf::maybe<uint64_t> to_u64(caf::maybe<const std::string&> x) {
   return to_uint<uint64_t>(x);
 }
 
 template <class T>
-caf::optional<T> to_int(caf::optional<const std::string&> x) {
+caf::maybe<T> to_int(caf::maybe<const std::string&> x) {
   if (! x)
     return caf::none;
   auto& str = *x;
@@ -133,21 +128,21 @@ caf::optional<T> to_int(caf::optional<const std::string&> x) {
   return caf::none;
 }
 
-caf::optional<int16_t> to_i16(caf::optional<const std::string&> x) {
+caf::maybe<int16_t> to_i16(caf::maybe<const std::string&> x) {
   return to_int<int16_t>(x);
 }
 
-caf::optional<int32_t> to_i32(caf::optional<const std::string&> x) {
+caf::maybe<int32_t> to_i32(caf::maybe<const std::string&> x) {
   return to_int<int32_t>(x);
 }
 
-caf::optional<int64_t> to_i64(caf::optional<const std::string&> x) {
+caf::maybe<int64_t> to_i64(caf::maybe<const std::string&> x) {
   return to_int<int64_t>(x);
 }
 
 struct flatten_t {
   template <class T>
-  auto operator()(std::vector<caf::optional<T>> xs) const {
+  auto operator()(std::vector<caf::maybe<T>> xs) const {
     std::vector<T> result;
     for (auto& x : xs)
       if (x)
@@ -172,12 +167,6 @@ void append(Container& xs, T x) {
 }
 
 template <class Container, class T>
-void append(Container& xs, caf::optional<T> x) {
-  if (x)
-    xs.emplace_back(std::move(*x));
-}
-
-template <class Container, class T>
 void append(Container& xs, caf::maybe<T> x) {
   if (x)
     xs.emplace_back(std::move(*x));
@@ -190,21 +179,20 @@ void repeat(T until, F fun) {
 }
 
 template <size_t X, class T>
-auto oget(caf::optional<T>& x) -> caf::optional<decltype(std::get<X>(*x))> {
+auto mget(caf::maybe<T>& x) -> caf::maybe<decltype(std::get<X>(*x))> {
   if (x)
     return std::get<X>(*x);
   return caf::none;
 }
 
 template <size_t X, class T>
-auto oget(const caf::optional<T>& x)
--> caf::optional<decltype(std::get<X>(*x))> {
+auto mget(const caf::maybe<T>& x) -> caf::maybe<decltype(std::get<X>(*x))> {
   if (x)
     return std::get<X>(*x);
   return caf::none;
 }
 
-auto ohead = [](const auto& xs) -> caf::optional<decltype(xs.front())> {
+auto ohead = [](const auto& xs) -> caf::maybe<decltype(xs.front())> {
   if (! xs.empty())
     return xs.front();
   return caf::none;
@@ -219,12 +207,12 @@ int operator<<(std::ostream& out, const eom_t&) {
 
 template <class T>
 struct optify {
-  using type = caf::optional<T>;
+  using type = caf::maybe<T>;
 };
 
 template <class T>
-struct optify<caf::optional<T>> {
-  using type = caf::optional<T>;
+struct optify<caf::maybe<T>> {
+  using type = caf::maybe<T>;
 };
 
 template <class T>

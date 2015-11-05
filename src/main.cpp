@@ -9,8 +9,11 @@
 #include "caf/maybe.hpp"
 #include "caf/policy/work_sharing.hpp"
 
+#include "caf/opencl/spawn_cl.hpp"
+
 #include "caf/experimental/whereis.hpp"
 #include "caf/experimental/announce_actor_type.hpp"
+
 
 #include "atoms.hpp"
 
@@ -39,11 +42,32 @@ using std::vector;
 
 spawn_result make_gpu_worker(message args) {
   spawn_result result;
+  // pre-pocessesing must be adjusted to the message sent to the actor
+  auto pre_process = [](message& msg) -> maybe<message> {
+    return msg;
+  };
+  // post-processing ensures the format (slice, offset)
+  auto post_process = [] (std::vector<float>& config,
+                          std::vector<int>& mandelbrot) -> message {
+    return make_message(move(mandelbrot), static_cast<uint32_t>(config[7]));
+  };
+  // size is calculated to fit the number of rows specified in the config
+  auto get_size = [](const std::vector<float>& config) {
+    auto columns = config[1];
+    auto rows    = config[8];
+    return static_cast<size_t>(columns * rows);
+  };
   args.apply({
     [&](atom_value fractal) {
       if (! valid_fractal_type(fractal))
         return;
-      // TODO: implement me
+      auto w = spawn_cl(calculate_fractal_kernel(fractal),
+                        "calculate_fractal",
+                        opencl::spawn_config(opencl::dim_vec{default_width,
+                                                             default_height}),
+                        pre_process, post_process,
+                        opencl::in_out<float*>{}, opencl::out<int*>{get_size});
+      result.first = w.address();
     }
   });
   return result;

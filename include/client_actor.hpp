@@ -1,6 +1,7 @@
 #ifndef CLIENT_ACTOR_HPP
 #define CLIENT_ACTOR_HPP
 
+#include <queue>
 #include <vector>
 #include <chrono>
 
@@ -14,8 +15,8 @@
 class client_actor : public caf::event_based_actor {
   //                            worker     weight
   using weight_map  = std::map<caf::actor, double>;
-  //                                           buffer
-  using image_cache = std::vector<std::vector<uint16_t>>;
+  //                                          buffer
+  using image_cache = std::queue<std::vector<uint16_t>>;
   //                                        offset     vector
   using chunk_cache = std::vector<std::pair<uint32_t, std::vector<uint16_t>>>;
 
@@ -24,13 +25,12 @@ public:
                size_t image_height, size_t image_width)
     : image_height_(image_height),
       image_width_(image_width),
-      image_size_(image_height_ * image_width),
+      image_size_(image_height_ * image_width_),
       sink_(sink),
       cache_(),
       chunk_cache_(),
       seconds_to_buffer_(seconds_to_buffer),
-      buffer_min_size_(0),
-      current_read_idx_(0) {
+      buffer_min_size_(0) {
     stream_.init(default_width,
                  default_height,
                  default_min_real,
@@ -54,7 +54,6 @@ private:
     auto fr_min_im = min_im(fr);
     auto fr_max_im = max_im(fr);
     // share data
-    uint32_t rows = image_width_;
     uint32_t shared_rows = 0;
     uint32_t current_row = 0;
     size_t current_idx = 0;
@@ -63,17 +62,12 @@ private:
       auto weight = e.second;
       uint32_t rows_to_share = 0;
       if (++current_idx < workers_.size()) {
-        rows_to_share = static_cast<uint32_t>(rows * weight);
+        rows_to_share = static_cast<uint32_t>(image_height_ * weight);
         shared_rows += rows_to_share;
       } else {
-        rows_to_share = rows - shared_rows;
+        rows_to_share = image_height_ - shared_rows;
         shared_rows += rows_to_share;
       }
-      //std::cout << "Weight: " << weight << ", rows: " << rows * weight
-      //          << " of total " << rows << " rows. (rows_to_share: "
-      //          << rows_to_share << " , shared_rows: " << shared_rows << ")."
-      //          << std::endl;
-      //id_map_.emplace(chunk_id, std::make_pair(img_id, current_row));
       send(w, default_iterations, fr_width, fr_height,
            current_row, rows_to_share, fr_min_re, fr_max_re, fr_min_im, fr_max_im);
       current_row += rows_to_share;
@@ -89,39 +83,50 @@ private:
         return a.first < b.first;
       };
       std::sort(chunk_cache_.begin(), chunk_cache_.end(), cmp);
+      std::vector<uint16_t> entry;
       for (auto& e : chunk_cache_)
-        cache_.emplace_back(std::move(e.second));
+        entry.insert(entry.end(), e.second.begin(), e.second.end());
+      cache_.emplace(std::move(entry));
       chunk_cache_.clear();
-      send_job();
     }
   }
 
-  void clear_buffer() {
-    // TODO
-  }
-
   caf::behavior main_phase() {
-    delayed_send(this, std::chrono::seconds(1), tick_atom::value);
+    send(this, tick_atom::value);
     return {
       [=](const std::vector<uint16_t>& data, uint32_t id) {
         concat_data(data, id);
       },
       [=](tick_atom) {
-        send(sink_, image_width_, cache_[current_read_idx_++]);
-        delayed_send(this, std::chrono::seconds(1), tick_atom::value);
-        clear_buffer();
+        delayed_send(this, tick_rate_, tick_atom::value);
+        if (cache_.empty()) {
+          std::cout << "[WARNING] Cache empty..." << std::endl;
+          return;
+        }
+        send(sink_, image_width_, cache_.front());
+        cache_.pop();
+        std::cout << "Cache size: " << cache_.size() << std::endl;
+        if (cache_.size() < buffer_max_size_)
+          send_job();
       }
     };
   }
 
   caf::behavior init_buffer() {
     // Initial send tasks
+    auto pending_chunks = std::make_shared<int>(workers_.size());
+    auto pending_jobs   = std::make_shared<int>(buffer_min_size_);
     send_job();
     return {
       [=](const std::vector<uint16_t>& data, uint32_t id) {
         concat_data(data, id);
-        if (cache_.size() >= buffer_min_size_) {
-          become(main_phase());
+        if (! --*pending_chunks) {
+          if (--*pending_jobs) {
+           send_job();
+            *pending_chunks = workers_.size();
+          } else {
+            become(main_phase());
+          }
         }
       }
     };
@@ -148,7 +153,7 @@ private:
         auto req_min_im = min_im(req);
         auto req_max_im = max_im(req);
         uint32_t offset = 0;
-        uint32_t rows = image_width_;
+        uint32_t rows = image_height_;
         for (auto& e : workers_) {
           auto& worker = e.first;
           start_map->emplace(worker, hrc::now());
@@ -174,12 +179,12 @@ private:
           auto ms  = static_cast<double>(std::chrono::milliseconds(total_time).count());
           auto sec = static_cast<double>(std::chrono::milliseconds(1000).count());
           double fps = sec / ms;
+          tick_rate_ = std::chrono::milliseconds(total_time);
           std::cout << "Assumed FPS: " << fps << std::endl;
           buffer_min_size_ = fps < 1 ? static_cast<uint32_t>(1.0 / fps)
                                      : static_cast<uint32_t>(fps);
           buffer_min_size_ *= seconds_to_buffer_;
-          std::cout << "Buffer min size is: " << buffer_min_size_ << std::endl;
-          current_read_idx_ = 0;
+          buffer_max_size_ = buffer_min_size_ * 4;
           become(init_buffer());
         }
       }
@@ -201,7 +206,9 @@ private:
   //
   uint32_t seconds_to_buffer_;
   uint32_t buffer_min_size_;
-  uint32_t current_read_idx_; //
+  uint32_t buffer_max_size_;
+  // tick
+  std::chrono::milliseconds tick_rate_;
 };
 
 #endif // CLIENT_ACTOR_HPP

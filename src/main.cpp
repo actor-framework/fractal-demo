@@ -175,7 +175,7 @@ maybe<actor> remote_spawn(node_id target, string name, Ts&&... xs) {
   return result;
 }
 
-int client(int argc, char** argv, const vector<node_id>& nodes,
+int client(int, char**, const vector<node_id>& nodes,
            atom_value fractal_type, image_sink sink) {
   if (nodes.empty()) {
     std::cerr << "no slave nodes available" << endl;

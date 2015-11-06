@@ -10,6 +10,7 @@
 #include "ui_main.h"
 #include "config.hpp"
 #include "mainwidget.hpp"
+#include "calculate_fractal.hpp"
 
 image_sink make_gui_sink(int argc, char** argv, uint32_t iterations) {
   auto promise = std::make_shared<std::promise<image_sink>>();
@@ -54,9 +55,19 @@ QImage image_from_fractal(uint32_t width,
   QImage image(static_cast<int>(width), static_cast<int>(frac.size() / width),
                QImage::Format_RGB32);
   size_t idx = 0;
-  for (size_t y = 0; y < frac.size() / width; ++y)
-    for (size_t x = 0; x < width; ++x)
-      image.setPixel(x, y, palette[frac[idx++]].rgb());
+//  auto itrs = std::minmax_element(begin(frac), end(frac));
+  auto min =    0; //*itrs.first;
+  auto max = 1000; //*itrs.second;
+//  auto dist = cumulative_distribution(frac);
+//  auto total = default_width * default_height;
+  for (size_t y = 0; y < frac.size() / width; ++y) {
+    for (size_t x = 0; x < width; ++x) {
+      auto log_idx = map_count_to_color(frac[idx++], min, max, palette.size());
+//      auto log_idx = map_count_to_color_historic(frac[idx++], palette.size(),
+//                                                 dist, total);
+      image.setPixel(x, y, palette[log_idx].rgb());
+    }
+  }
   return image;
 }
 

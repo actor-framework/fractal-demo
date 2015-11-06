@@ -1,8 +1,12 @@
 #include "calculate_fractal.hpp"
 
+#include <set>
 #include <cmath>
 #include <cassert>
+#include <numeric>
+#include <iostream>
 #include <stdexcept>
+#include <functional>
 
 void calculate_palette(caf::atom_value fractal,
                        std::vector<QColor>& storage,
@@ -29,6 +33,47 @@ void calculate_palette(caf::atom_value fractal,
   }
 }
 
+/// Substracts the int part from the number
+double frac(double value) {
+  return value - static_cast<unsigned>(value);
+}
+
+size_t map_count_to_color(int cnt, int min, int max, int num_colors,
+                          double P, double Q) {
+  auto cnt_d = static_cast<double>(cnt);
+  auto min_d = static_cast<double>(min);
+  auto max_d = static_cast<double>(max);
+//  auto u = (cnt_d - min_d) / (max_d - min_d);                         // linear
+//  auto u = (sqrt(cnt_d) - sqrt(min_d)) / (sqrt(max_d) - sqrt(min_d)); // sqrt
+  auto u = (cbrt(cnt_d) - cbrt(min_d)) / (cbrt(max_d) - cbrt(min_d)); // cbrt
+//  auto u = (log(cnt_d) - log(min_d)) / (log(max_d) - log(min_d));     // log
+//  auto u = (log(cnt_d / min_d)) / (log(max_d / min_d));               // log
+  u = frac(u * P + Q);
+  return static_cast<size_t>(u * static_cast<double>(num_colors));
+}
+
+std::vector<int> cumulative_distribution(const std::vector<uint16_t>& counts) {
+  std::vector<int> histogram(counts.size(), 0);
+  for (size_t i = 0; i < counts.size(); ++i) {
+    histogram[counts[i]] = histogram[counts[i]] + 1;
+  }
+  std::vector<int> distribution(counts.size());
+  distribution[0] = histogram[0];
+  for (size_t i = 1; i < histogram.size(); ++i) {
+    distribution[i] = distribution[i-1] + histogram[i];
+  }
+  return distribution;
+}
+
+size_t map_count_to_color_historic(int cnt, int num_colors,
+                                   const std::vector<int>& distribution,
+                                   size_t total_pixles, double P, double Q) {
+  auto u = static_cast<double>(distribution[cnt]) /
+             static_cast<double>(total_pixles);
+  u = frac(u * P + Q); // FRAC substracts the int part from the number
+  return static_cast<size_t>(u * static_cast<double>(num_colors));
+}
+
 /// The config passed to kernels contains the following (as floats)
 /// [0]: iterations -> mamyimum iterations to test for escape
 /// [1]: width      -> totoal columns
@@ -40,37 +85,37 @@ void calculate_palette(caf::atom_value fractal,
 /// [7]: offset     -> offset for calculation
 /// [8]: rows       -> rows after offset
 constexpr const char* mandelbrot_kernel = R"__(
-  __kernel void calculate_fractal(__global float* config,
-                                  __global int*   output) {
-    float offset = config[7];
-    float rows   = config[8];
+  __kernel void calculate_fractal(__global float*    config,
+                                  __global unsigned short* output) {
+    unsigned offset = (unsigned) config[7];
+    unsigned rows   = (unsigned) config[8];
     unsigned x = get_global_id(0);
     unsigned y = get_global_id(1);
     if (y >= offset && y < (offset + rows)) {
-      unsigned iterations = config[0];
-      unsigned width = config[1];
-      unsigned height = config[2];
+      unsigned iterations = (unsigned) config[0];
+      unsigned width      = (unsigned) config[1];
+      unsigned height     = (unsigned) config[2];
       float min_re = config[3];
       float max_re = config[4];
       float min_im = config[5];
       float max_im = config[6];
-      float re_factor = (max_re-min_re)/(width-1);
-      float ifactor_ = (max_im-min_im)/(height-1);
-      float z_re = min_re + x*re_factor;
-      float z_im = max_im - y*ifactor_;
+      float re_factor = (max_re - min_re) / (width - 1);
+      float im_factor = (max_im - min_im) / (height - 1);
+      float z_re = min_re + x * re_factor;
+      float z_im = max_im - y * im_factor;
       float const_re = z_re;
       float const_im = z_im;
-      unsigned cnt = 0;
+      unsigned short cnt = 0;
       float cond = 0;
       do {
         float tmp_re = z_re;
         float tmp_im = z_im;
-        z_re = ( tmp_re*tmp_re - tmp_im*tmp_im ) + const_re;
+        z_re = ( tmp_re * tmp_re - tmp_im * tmp_im ) + const_re;
         z_im = ( 2 * tmp_re * tmp_im ) + const_im;
-        cond = (z_re - z_im) * (z_re - z_im);
-        cnt ++;
+        cond = z_re * z_re + z_im * z_im;
+        ++cnt;
       } while (cnt < iterations && cond <= 4.0f);
-      output[x+y*width] = cnt;
+      output[x + (y - offset) * width] = cnt;
     }
   }
 )__";

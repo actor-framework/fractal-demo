@@ -9,7 +9,7 @@
 #include "caf/maybe.hpp"
 #include "caf/policy/work_sharing.hpp"
 
-#include "caf/opencl/spawn_cl.hpp"
+//#include "caf/opencl/spawn_cl.hpp"
 
 #include "caf/experimental/whereis.hpp"
 #include "caf/experimental/announce_actor_type.hpp"
@@ -40,7 +40,7 @@ using std::endl;
 using std::string;
 using std::vector;
 
-spawn_result make_gpu_worker(message args) {
+/*spawn_result make_gpu_worker(message args) {
   spawn_result result;
   // pre-pocessesing must be adjusted to the message sent to the actor
   auto pre_process = [](message& msg) -> maybe<message> {
@@ -88,7 +88,7 @@ spawn_result make_gpu_worker(message args) {
     }
   });
   return result;
-}
+}*/
 
 struct cpu_worker_state {
   const char* name = "CPU worker";
@@ -133,14 +133,14 @@ maybe<uint16_t> x_in_range(uint16_t min_port, uint16_t max_port,
 
 maybe<uint16_t> open_port_in_range(uint16_t min_port, uint16_t max_port) {
   auto f = [](ok_atom, uint16_t actual_port) {
-    std::cout << "running in passive mode on port " << actual_port << endl;
+    std::cout << "opened port " << actual_port << endl;
   };
   return x_in_range(min_port, max_port, f, open_atom::value, "", false);
 }
 
 maybe<uint16_t> publish_in_range(uint16_t min_port, uint16_t max_port, actor whom) {
   auto f = [](ok_atom, uint16_t actual_port) {
-    std::cout << "running in passive mode on port " << actual_port << endl;
+    std::cout << "published actor on port " << actual_port << endl;
   };
   return x_in_range(min_port, max_port, f, publish_atom::value,
                     whom.address(), std::set<string>{}, "", false);
@@ -155,11 +155,11 @@ std::pair<node_id, actor_addr> connect_node(const string& node, uint16_t port) {
       if (! is_invalid(nid))
         result = std::make_pair(std::move(nid), std::move(aid));
     },
-    [&](error_atom, const string&) {
-      // nop
+    [&](error_atom, const string& errstr) {
+      cerr << "error: " << errstr << endl;
     });
   if (is_invalid(result.first))
-    cerr << "cannot connect to " << node << " onn port " << port << endl;
+    cerr << "cannot connect to " << node << " on port " << port << endl;
   return result;
 }
 
@@ -313,10 +313,10 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
     auto c = f(mget<0>(x), to_u16(mget<1>(x)));
   }
   image_sink sink;
-  //if (res.opts.count("no-gui"))
+  if (res.opts.count("no-gui"))
     sink = make_file_sink(default_iterations);
-  //else
-  //  sink = make_gui_sink(argc, argv, default_iterations);
+  else
+    sink = make_gui_sink(argc, argv, default_iterations);
   return client(argc, argv, nodes, fractal_map[fractal], sink);
 }
 
@@ -412,7 +412,7 @@ public:
     // FIXME: move application-specifc announce code back to main
     //        once actor_system_conf is implemented
     announce_actor_type("CPU worker", cpu_worker);
-    announce_actor_factory("GPU worker", make_gpu_worker);
+    //announce_actor_factory("GPU worker", make_gpu_worker);
     announce<std::vector<uint16_t>>("frac_result");
     set_config("scheduler.policy", to_string(sched_policy));
     set_config("scheduler.max-throughput", static_cast<int64_t>(throughput));
@@ -478,6 +478,10 @@ public:
 private:
   int slave_mode(uint16_t min_port, uint16_t max_port,
                    const string& name, actor bootstrapper) {
+    std::cout << "slave_mode: " << name << std::endl;
+    std::cout << "my addresses: " << std::endl;
+    for (auto addr : io::network::interfaces::list_addresses(io::network::protocol::ipv4))
+      std::cout << addr << std::endl;
     auto port = open_port_in_range(min_port, max_port);
     if (! port) {
       std::cerr << "unable to open a port in range "

@@ -20,7 +20,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(OpenCL REQUIRED)
 find_package(Qt5Widgets REQUIRED)
-find_package(CAF COMPONENTS core io riac opencl REQUIRED)
+find_package(CAF COMPONENTS core io riac REQUIRED)
 
 # prohibit in-source builds
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -80,7 +80,7 @@ else ()
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif ()
 
-add_definitions("-DENABLE_OPENCL")
+#add_definitions("-DENABLE_OPENCL")
 
 # -pthread is ignored on MacOSX but required on other platforms
 if(NOT APPLE AND NOT WIN32)
@@ -110,7 +110,7 @@ set(SOURCES
 file(GLOB HEADERS "include/*.hpp" "caf/*.hpp")
 
 add_executable(fractal-demo src/main.cpp ${SOURCES} ${HEADERS} ${UI_HDRS})
-target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES} ${OPENCL_LIBRARIES})
+target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES})
 qt5_use_modules(fractal-demo Widgets)
 
 add_executable(cafrun src/cafrun.cpp)

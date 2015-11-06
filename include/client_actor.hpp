@@ -52,20 +52,17 @@ private:
     auto fr_min_im = min_im(fr);
     auto fr_max_im = max_im(fr);
     // share data
-    uint32_t shared_rows = 0;
     uint32_t current_row = 0;
     size_t current_idx = 0;
     for (auto& e : workers_) {
       auto& w = e.first;
       auto weight = e.second;
       uint32_t rows_to_share = 0;
-      if (++current_idx < workers_.size()) {
-        rows_to_share = static_cast<uint32_t>(image_height_ * weight);
-        shared_rows += rows_to_share;
-      } else {
-        rows_to_share = image_height_ - shared_rows;
-        shared_rows += rows_to_share;
-      }
+      if (current_idx != workers_.size() - 1)
+        rows_to_share = image_height_ * weight;
+      else
+        rows_to_share = image_height_ - current_row;
+      if (rows_to_share == 0) std::cout << "doof..." << std::endl;
       send(w, default_iterations, fr_width, fr_height,
            current_row, rows_to_share, fr_min_re, fr_max_re, fr_min_im, fr_max_im);
       current_row += rows_to_share;
@@ -86,6 +83,7 @@ private:
         entry.insert(entry.end(), e.second.begin(), e.second.end());
       cache_.emplace(std::move(entry));
       chunk_cache_.clear();
+      send_job(); // TODO: Evtl 2 verschiedene fraktale gleichzeitig? (TESTEN)
     }
   }
 
@@ -118,8 +116,6 @@ private:
         }
         send(sink_, image_width_, cache_.front());
         cache_.pop();
-        if (cache_.size() < buffer_max_size_)
-          send_job();
       },
       [=](resize_atom, uint32_t w, uint32_t h) {
         resize(w,h);
@@ -173,6 +169,7 @@ private:
                        >();
     return {
       [=](init_atom, const std::vector<caf::actor>& all_workers) {
+        std::cout << "init: " << all_workers.size() << std::endl;
         all_workers_.clear();
         all_workers_.insert(std::begin(all_workers_), std::begin(all_workers),
                             std::end(all_workers));
@@ -220,15 +217,20 @@ private:
                                             size_t{0}, add);
           for (auto& e : workers_)
             e.second = e.second / total_time;
-          total_time /= workers_.size();
-          auto ms  = static_cast<double>(std::chrono::milliseconds(total_time).count());
+          double time = diff;
+          for (auto& e : workers_) {
+            time *= e.second;
+            break;
+          }
+          auto ms  = static_cast<double>(std::chrono::milliseconds(static_cast<uint16_t>(time)).count());
           auto sec = static_cast<double>(std::chrono::milliseconds(1000).count());
           double fps = sec / ms;
-          tick_rate_ = std::chrono::milliseconds(total_time);
+          tick_rate_ = std::chrono::milliseconds(/*static_cast<uint16_t>(time) + 50*/1000);
           std::cout << "Assumed FPS: " << fps << std::endl;
-          buffer_min_size_ = fps < 1 ? static_cast<uint32_t>(1.0 / fps)
-                                     : static_cast<uint32_t>(fps);
-          buffer_min_size_ *= seconds_to_buffer_; // FIXME
+          //buffer_min_size_ = fps < 1 ? static_cast<uint32_t>(1.0 / fps)
+          //                           : static_cast<uint32_t>(fps);
+          //buffer_min_size_ *= seconds_to_buffer_; // FIXME
+          buffer_min_size_ = static_cast<uint32_t>(fps) + 1 * seconds_to_buffer_;
           buffer_max_size_ = buffer_min_size_ * 4;
           become(init_buffer());
         }

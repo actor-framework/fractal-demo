@@ -94,6 +94,7 @@ std::vector<host_desc> read_hostfile(const string& fname) {
 }
 
 int run_ssh(const string& wdir, const string& cmd, const string& host) {
+  std::cout << "runssh, wdir: " << wdir << " cmd: " << cmd << " host: " << host << std::endl;
   // pack command before sending it to avoid any issue with shell escaping
   string full_cmd = "cd ";
   full_cmd += wdir;
@@ -101,10 +102,11 @@ int run_ssh(const string& wdir, const string& cmd, const string& host) {
   full_cmd += cmd;
   auto packed = encode_base64(full_cmd);
   std::ostringstream oss;
-  oss << "ssh -o ServerAliveInterval=60 " << host
-      << " echo " << packed << " | base64 --decode | /bin/sh";
+  oss << "ssh -Y -o ServerAliveInterval=60 " << host
+      << " \"echo " << packed << " | base64 --decode | /bin/sh\"";
   //return system(oss.str().c_str());
   string line;
+  std::cout << "popen: " << oss.str() << std::endl;
   auto fp = popen(oss.str().c_str(), "r");
   if (! fp)
     return -1;
@@ -125,6 +127,7 @@ int run_ssh(const string& wdir, const string& cmd, const string& host) {
     }
   }
   pclose(fp);
+  std::cout << "host down: " << host << std::endl;
   if (! line.empty())
     aout(self) << line << std::endl;
   return 0;

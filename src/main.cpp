@@ -233,8 +233,8 @@ int client(int, char**, const vector<node_id>& nodes,
                                  3, /* seconds to buffer */
                                  default_height,
                                  default_width);
-  io::publish(clt, 1337);
-  anon_send(clt, calc_weights_atom::value, workers, workers.size());
+  io::publish(clt, 1337, nullptr, true);
+  anon_send(clt, init_atom::value, workers);
   await_all_actors_done();
   // Lauch gui
   //anon_send(clt, atom("SetSink"), actor_cast<actor>(*main.mainWidget));

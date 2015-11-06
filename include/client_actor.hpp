@@ -28,9 +28,7 @@ public:
       image_size_(image_height_ * image_width_),
       sink_(sink),
       cache_(),
-      chunk_cache_(),
-      seconds_to_buffer_(seconds_to_buffer),
-      buffer_min_size_(0) {
+      seconds_to_buffer_(seconds_to_buffer) {
     stream_.init(default_width,
                  default_height,
                  default_min_real,
@@ -95,9 +93,6 @@ private:
     image_width_ = width;
     image_height_ = height;
     image_size_ = image_width_ * image_height_;
-    std::vector<caf::actor> worker_set;
-    for (auto& w : workers_)
-      worker_set.push_back(w.first);
     stream_.init(width,
                  height,
                  default_min_real,
@@ -106,8 +101,8 @@ private:
                  default_max_imag,
                  default_zoom);
     become(make_behavior());
-    send(this, calc_weights_atom::value, worker_set, worker_set.size());
-  };
+    send(this, calc_weights_atom::value, workers_.size());
+  }
 
   caf::behavior main_phase() {
     send(this, tick_atom::value);
@@ -128,6 +123,10 @@ private:
       },
       [=](resize_atom, uint32_t w, uint32_t h) {
         resize(w,h);
+      },
+      [=](limit_atom, normal_atom, uint32_t workers) {
+        become(make_behavior());
+        send(this, calc_weights_atom::value, size_t{workers});
       },
       caf::others() >> [=] {
         std::cout << to_string(current_message()) << std::endl;
@@ -155,6 +154,10 @@ private:
       [=](resize_atom, uint32_t w, uint32_t h) {
         resize(w,h);
       },
+      [=](limit_atom, normal_atom, uint32_t workers) {
+        become(make_behavior());
+        send(this, calc_weights_atom::value, size_t{workers});
+      },
       caf::others() >> [=] {
         std::cout << to_string(current_message()) << std::endl;
       }
@@ -169,8 +172,13 @@ private:
                                 >
                        >();
     return {
-      [=](calc_weights_atom, const std::vector<caf::actor>& workers,
-          size_t workers_to_use) {
+      [=](init_atom, const std::vector<caf::actor>& all_workers) {
+        all_workers_.clear();
+        all_workers_.insert(std::begin(all_workers_), std::begin(all_workers),
+                            std::end(all_workers));
+        send(this, calc_weights_atom::value, all_workers_.size());
+      },
+      [=](calc_weights_atom, size_t workers_to_use) {
         // Clear all caches
         chunk_cache_.clear();
         image_cache empty;
@@ -179,7 +187,7 @@ private:
         workers_.clear();
         //
         for (size_t i = 0; i < workers_to_use; ++i)
-          workers_.emplace(workers[i], 0);
+          workers_.emplace(all_workers_[i], 0);
         using hrc = std::chrono::high_resolution_clock;
         auto req = stream_.next(); // TODO: Get a image with much black
         uint32_t req_width = width(req);
@@ -228,28 +236,32 @@ private:
       [=](resize_atom, uint32_t w, uint32_t h) {
         resize(w,h);
       },
+      [=](limit_atom, normal_atom, uint32_t workers) {
+        send(this, calc_weights_atom::value, size_t{workers});
+      },
       caf::others() >> [=] {
         std::cout << to_string(current_message()) << std::endl;
       }
     };
   }
+  std::vector<caf::actor> all_workers_ = {};
   //
-  weight_map workers_;
+  weight_map workers_ = {};
   // image properties
-  uint32_t image_height_;
-  uint32_t image_width_;
-  uint32_t image_size_;
+  uint32_t image_height_ = 0;
+  uint32_t image_width_ = 0;
+  uint32_t image_size_ = 0;
   // fractal stream
   fractal_request_stream stream_;
   //
   image_sink& sink_;
   // buffer
   image_cache cache_;
-  chunk_cache chunk_cache_;
+  chunk_cache chunk_cache_ = {};
   //
-  uint32_t seconds_to_buffer_;
-  uint32_t buffer_min_size_;
-  uint32_t buffer_max_size_;
+  uint32_t seconds_to_buffer_ = 0;
+  uint32_t buffer_min_size_ = 0;
+  uint32_t buffer_max_size_ = 0;
   // tick
   std::chrono::milliseconds tick_rate_;
 };

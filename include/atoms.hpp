@@ -34,6 +34,7 @@ using config_server_atom = caf::atom_constant<caf::atom("ConfigServ")>;
 using iterations_atom = caf::atom_constant<caf::atom("iterations")>;
 using calc_weights_atom = caf::atom_constant<caf::atom("weights")>;
 using tick_atom = caf::atom_constant<caf::atom("tick")>;
+using init_atom = caf::atom_constant<caf::atom("init")>;
 
 using resize_atom = caf::atom_constant<caf::atom("resize")>;
 using max_cpu_atom = caf::atom_constant<caf::atom("max_cpu")>;

@@ -83,7 +83,6 @@ private:
         entry.insert(entry.end(), e.second.begin(), e.second.end());
       cache_.emplace(std::move(entry));
       chunk_cache_.clear();
-      send_job(); // TODO: Evtl 2 verschiedene fraktale gleichzeitig? (TESTEN)
     }
   }
 
@@ -116,6 +115,7 @@ private:
         }
         send(sink_, image_width_, cache_.front());
         cache_.pop();
+        send_job();
       },
       [=](resize_atom, uint32_t w, uint32_t h) {
         resize(w,h);

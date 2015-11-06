@@ -44,11 +44,28 @@ spawn_result make_gpu_worker(message args) {
   spawn_result result;
   // pre-pocessesing must be adjusted to the message sent to the actor
   auto pre_process = [](message& msg) -> maybe<message> {
-    return msg;
+    return msg.apply(
+      [](uint16_t iterations, uint32_t width, uint32_t height,
+         uint32_t offset, uint32_t rows,
+         float min_re, float max_re, float min_im, float max_im) {
+        std::vector<float> config{
+          static_cast<float>(iterations), // 0
+          static_cast<float>(width),      // 1
+          static_cast<float>(height),     // 2
+          static_cast<float>(min_re),     // 3
+          static_cast<float>(max_re),     // 4
+          static_cast<float>(min_im),     // 5
+          static_cast<float>(max_im),     // 6
+          static_cast<float>(offset),     // 7
+          static_cast<float>(rows)        // 8
+        };
+        return make_message(std::move(config));
+      }
+    );
   };
   // post-processing ensures the format (slice, offset)
-  auto post_process = [] (std::vector<float>& config,
-                          std::vector<int>& mandelbrot) -> message {
+  auto post_process = [] (std::vector<float>&    config,
+                          std::vector<uint16_t>& mandelbrot) -> message {
     return make_message(move(mandelbrot), static_cast<uint32_t>(config[7]));
   };
   // size is calculated to fit the number of rows specified in the config
@@ -58,15 +75,15 @@ spawn_result make_gpu_worker(message args) {
     return static_cast<size_t>(columns * rows);
   };
   args.apply({
-    [&](atom_value fractal) {
+    [&](atom_value fractal, uint32_t device_id) {
       if (! valid_fractal_type(fractal))
         return;
-      auto w = spawn_cl(calculate_fractal_kernel(fractal),
+      auto w = spawn_cl(opencl::program::create(calculate_fractal_kernel(fractal), nullptr, device_id),
                         "calculate_fractal",
                         opencl::spawn_config(opencl::dim_vec{default_width,
                                                              default_height}),
                         pre_process, post_process,
-                        opencl::in_out<float*>{}, opencl::out<int*>{get_size});
+                        opencl::in_out<float*>{}, opencl::out<uint16_t*>{get_size});
       result.first = w.address();
     }
   });
@@ -215,16 +232,22 @@ int client(int, char**, const vector<node_id>& nodes,
     total_cpu_workers += hc;
     repeat(hc, [&] { append(workers,
                             remote_spawn(node, "CPU worker", fractal_type)); });
-    auto gd = ask_config(cs, "fractal-demo.gpu-devices");
+    for (auto device_id : explode(ask_str_config(cs, "opencl.device-ids"), ",") | map(to_u32) | flatten) {
+      ++total_gpu_workers;
+      append(workers,
+             remote_spawn(node, "GPU worker", fractal_type, device_id));
+    }
+    /*
     total_gpu_workers += gd;
     repeat(gd, [&] { append(workers,
                             remote_spawn(node, "GPU worker", fractal_type)); });
+    */
   }
   if (workers.empty()) {
     cerr << "could not spawn any workers" << endl;
     return -1;
   }
-  cout << "run demo on " << nodes.size() << " slave nodes with "
+  cout << "^run demo on " << nodes.size() << " slave nodes with "
        << total_cpu_workers << " CPU workers and "
        << total_gpu_workers << " GPU workers" << endl;
 
@@ -290,10 +313,10 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
     auto c = f(mget<0>(x), to_u16(mget<1>(x)));
   }
   image_sink sink;
-  if (res.opts.count("no-gui"))
+  //if (res.opts.count("no-gui"))
     sink = make_file_sink(default_iterations);
-  else
-    sink = make_gui_sink(argc, argv, default_iterations);
+  //else
+  //  sink = make_gui_sink(argc, argv, default_iterations);
   return client(argc, argv, nodes, fractal_map[fractal], sink);
 }
 
@@ -364,11 +387,13 @@ public:
     string name;
     size_t nthreads = std::thread::hardware_concurrency();
     size_t throughput = std::numeric_limits<size_t>::max();
+    string cl_devices;
     auto res = message_builder(argv_ + 1, argv_ + argc_).extract_opts({
       // general CAF options
       {"caf-scheduler-policy", "scheduler policy", set_sched_policy},
       {"caf-scheduler-max-throughput", "max scheduler throughput", throughput},
       {"caf-scheduler-max-threads", "number of scheduler threads", nthreads},
+      {"caf-opencl-devices", "comma-separated OpenCL devices", cl_devices},
       // cafrun general options
       {"caf-bootstrap-node", "bootstrap node in 'host/port' notation", bnode},
       // cafrun slave options
@@ -392,6 +417,7 @@ public:
     set_config("scheduler.policy", to_string(sched_policy));
     set_config("scheduler.max-throughput", static_cast<int64_t>(throughput));
     set_config("scheduler.max-threads", static_cast<int64_t>(nthreads));
+    set_config("opencl.device-ids", cl_devices);
     if (res.opts.count("caf-slave-mode")) {
       auto pr = explode(range, "-") | map(to_u16) | flatten | to_pair;
       auto bslist = explode(bnode, ',');

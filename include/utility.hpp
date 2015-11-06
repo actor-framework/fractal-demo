@@ -317,6 +317,20 @@ int64_t ask_config(caf::actor config_serv, const char* key) {
   return result;
 }
 
+std::string ask_str_config(caf::actor config_serv, const char* key) {
+  caf::scoped_actor self;
+  std::string result;
+  self->sync_send(config_serv, caf::get_atom::value, key).await(
+    [&](caf::ok_atom, std::string&, caf::message value) {
+      value.apply([&](std::string res) { result = res; });
+    },
+    caf::others >> [] {
+      // ignore
+    }
+  );
+  return result;
+}
+
 int64_t ask_config(const char* key) {
   return ask_config(caf::experimental::whereis(caf::atom("ConfigServ")), key);
 }

@@ -45,12 +45,12 @@ class host_desc {
 public:
   std::string host;
   int cpu_slots;
-  int gpu_slots;
+  string opencl_device_ids;
 
-  host_desc(std::string host_str, int cpu_slots_val, int gpu_slots_val = 0)
+  host_desc(std::string host_str, int cpu_slots_val, string opencl_device_ids = "")
       : host(std::move(host_str)),
         cpu_slots(cpu_slots_val),
-        gpu_slots(gpu_slots_val) {
+        opencl_device_ids(opencl_device_ids) {
     // nop
   }
 
@@ -66,11 +66,14 @@ public:
     host_desc hd;
     hd.host = std::move(xs.front());
     hd.cpu_slots = 0;
-    hd.gpu_slots = 0;
+    hd.opencl_device_ids = "";
     for (auto i = xs.begin() + 1; i != xs.end(); ++i) {
       message_builder{explode(*i, is_any_of("="))}.extract({
         on("slots", to_i32) >> [&](int x) {
           hd.cpu_slots = x;
+        },
+        on("device_ids", arg_match) >> [&](std::string ids) {
+          hd.opencl_device_ids = std::move(ids);
         }
       });
     }
@@ -143,7 +146,7 @@ void bootstrap(const string& wdir,
   auto port = io::publish(self, 0);
   // run a slave process at master host if user defined slots > 1 for it
   if (master.cpu_slots > 1)
-    slaves.emplace_back(master.host, master.cpu_slots - 1, master.gpu_slots);
+    slaves.emplace_back(master.host, master.cpu_slots - 1, master.opencl_device_ids);
   for (auto& slave : slaves) {
     using namespace caf::io::network;
     // build SSH command and pack it to avoid any issue with shell escaping
@@ -151,7 +154,9 @@ void bootstrap(const string& wdir,
       std::ostringstream oss;
       oss << cmd;
       if (slave.cpu_slots > 0)
-          oss << " --caf-scheduler-max-threads=" << slave.cpu_slots;
+        oss << " --caf-scheduler-max-threads=" << slave.cpu_slots;
+      if (! slave.opencl_device_ids.empty())
+        oss << " --caf-opencl-devices=" << slave.opencl_device_ids;
       oss << " --caf-slave-mode"
           << " --caf-slave-name=" << slave.host
           << " --caf-bootstrap-node=";

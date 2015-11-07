@@ -46,6 +46,8 @@ void controller(int argc, char** argv, caf::actor& server) {
   auto ctrl_widget = ctrl_ui.controllerWidget;
   ctrl_widget->set_controller(ctrl);
   ctrl_widget->initialize();
+  anon_send(ctrl_widget->as_actor(), max_cpu_atom::value, size_t{64});
+  anon_send(ctrl_widget->as_actor(), max_gpu_atom::value, size_t{0});
   window.show();
   app.quitOnLastWindowClosed();
   app.exec();

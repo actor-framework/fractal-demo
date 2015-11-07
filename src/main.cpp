@@ -313,10 +313,10 @@ int run(actor_system&, vector<node_id> nodes, int argc, char** argv) {
     auto c = f(mget<0>(x), to_u16(mget<1>(x)));
   }
   image_sink sink;
-  //if (res.opts.count("no-gui"))
+  if (res.opts.count("no-gui"))
     sink = make_file_sink(default_iterations);
-  //else
-  //  sink = make_gui_sink(argc, argv, default_iterations);
+  else
+    sink = make_gui_sink(argc, argv, default_iterations);
   return client(argc, argv, nodes, fractal_map[fractal], sink);
 }
 

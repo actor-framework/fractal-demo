@@ -74,6 +74,8 @@ void ControllerWidget::initialize() {
   color_slider()->setTickInterval(1);
   color_slider()->setTickPosition(QSlider::TicksBelow);
   color_slider()->setValue(default_color); // 180 is default color
+  color_slider()->setVisible(false);
+  gpu_slider()->setVisible(false);
 }
 
 

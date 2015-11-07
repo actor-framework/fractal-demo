@@ -69,6 +69,7 @@ class ControllerWidget : public caf::mixin::actor_widget<QWidget> {
 
   inline void set_cpu_max(size_t max) {
     cpu_slider()->setRange(1, static_cast<int>(max));
+    cpu_slider()->setValue(64);
     cpu_slider()->setTickInterval(1);
     cpu_slider()->setTickPosition(QSlider::TicksBelow);
   }

@@ -26,9 +26,7 @@ public:
     : image_height_(image_height),
       image_width_(image_width),
       image_size_(image_height_ * image_width_),
-      sink_(sink),
-      cache_(),
-      seconds_to_buffer_(seconds_to_buffer) {
+      sink_(sink) {
     stream_.init(default_width,
                  default_height,
                  default_min_real,
@@ -62,16 +60,16 @@ private:
         rows_to_share = image_height_ * weight;
       else
         rows_to_share = image_height_ - current_row;
-      if (rows_to_share == 0) std::cout << "doof..." << std::endl;
       send(w, default_iterations, fr_width, fr_height,
            current_row, rows_to_share, fr_min_re, fr_max_re, fr_min_im, fr_max_im);
       current_row += rows_to_share;
     }
+    pending_chunks_ = workers_.size();
   }
 
   void concat_data(const std::vector<uint16_t>& data, uint32_t offset) {
     chunk_cache_.push_back(std::make_pair(offset,data));
-    if (chunk_cache_.size() == workers_.size()) {
+    if (chunk_cache_.size() == pending_chunks_) {
       // All parts recieved, sort and concat vectors
       auto cmp = [&](const std::pair<uint32_t, std::vector<uint16_t>>& a,
                      const std::pair<uint32_t, std::vector<uint16_t>>& b) {
@@ -81,8 +79,9 @@ private:
       std::vector<uint16_t> entry;
       for (auto& e : chunk_cache_)
         entry.insert(entry.end(), e.second.begin(), e.second.end());
-      cache_.emplace(std::move(entry));
       chunk_cache_.clear();
+      send(sink_, image_width_, entry);
+      send_job();
     }
   }
 
@@ -97,94 +96,36 @@ private:
                  default_min_imag,
                  default_max_imag,
                  default_zoom);
-    become(make_behavior());
     send(this, calc_weights_atom::value, workers_.size());
   }
 
-  caf::behavior main_phase() {
-    send(this, tick_atom::value);
-    return {
-      [=](const std::vector<uint16_t>& data, uint32_t id) {
-        concat_data(data, id);
-      },
-      [=](tick_atom) {
-        delayed_send(this, tick_rate_, tick_atom::value);
-        if (cache_.empty()) {
-          std::cout << "[WARNING] Cache empty..." << std::endl;
-          return;
-        }
-        send(sink_, image_width_, cache_.front());
-        cache_.pop();
-        send_job();
-      },
-      [=](resize_atom, uint32_t w, uint32_t h) {
-        resize(w,h);
-      },
-      [=](limit_atom, normal_atom, uint32_t workers) {
-        become(make_behavior());
-        send(this, calc_weights_atom::value, size_t{workers});
-      },
-      caf::others() >> [=] {
-        std::cout << to_string(current_message()) << std::endl;
-      }
-    };
+  void calculate_weights(uint32_t workers) {
+    workers_.clear();
+    uint32_t idx = 0;
+    double total_times = 0;
+    for (auto& e : all_workers_) {
+      if (++idx > workers) break;
+      total_times += e.second;
+      workers_.insert(std::make_pair(e.first, 0));
+    }
+    idx = 0;
+    for (auto& e : all_workers_) {
+      if (++idx > workers) break;
+      workers_[e.first] = e.second / total_times;
+    }
   }
 
-  caf::behavior init_buffer() {
-    // Initial send tasks
-    auto pending_chunks = std::make_shared<int>(workers_.size());
-    auto pending_jobs   = std::make_shared<int>(buffer_min_size_);
-    send_job();
-    return {
-      [=](const std::vector<uint16_t>& data, uint32_t id) {
-        concat_data(data, id);
-        if (! --*pending_chunks) {
-          if (--*pending_jobs) {
-           send_job();
-            *pending_chunks = workers_.size();
-          } else {
-            become(main_phase());
-          }
-        }
-      },
-      [=](resize_atom, uint32_t w, uint32_t h) {
-        resize(w,h);
-      },
-      [=](limit_atom, normal_atom, uint32_t workers) {
-        become(make_behavior());
-        send(this, calc_weights_atom::value, size_t{workers});
-      },
-      caf::others() >> [=] {
-        std::cout << to_string(current_message()) << std::endl;
-      }
-    };
-  }
 
   caf::behavior make_behavior() override {
-    auto start_map = std::make_shared<
-                       std::map<caf::actor,
-                                std::chrono::time_point<
-                                  std::chrono::high_resolution_clock>
-                                >
-                       >();
+    auto init = std::make_shared<bool>(false);
+    auto left = std::make_shared<int>(0);
     return {
       [=](init_atom, const std::vector<caf::actor>& all_workers) {
-        std::cout << "init: " << all_workers.size() << std::endl;
-        all_workers_.clear();
-        all_workers_.insert(std::begin(all_workers_), std::begin(all_workers),
-                            std::end(all_workers));
-        send(this, calc_weights_atom::value, all_workers_.size());
+        for (auto& w : all_workers)
+          all_workers_.push_back(std::make_pair(w, 0));
+        send(this, calc_weights_atom::value);
       },
-      [=](calc_weights_atom, size_t workers_to_use) {
-        // Clear all caches
-        chunk_cache_.clear();
-        image_cache empty;
-        std::swap(cache_, empty);
-        start_map->clear();
-        workers_.clear();
-        //
-        for (size_t i = 0; i < workers_to_use; ++i)
-          workers_.emplace(all_workers_[i], 0);
+      [=](calc_weights_atom) {
         using hrc = std::chrono::high_resolution_clock;
         auto req = stream_.next(); // TODO: Get a image with much black
         uint32_t req_width = width(req);
@@ -195,77 +136,63 @@ private:
         auto req_max_im = max_im(req);
         uint32_t offset = 0;
         uint32_t rows = image_height_;
-        for (auto& e : workers_) {
+        *left = all_workers_.size();
+        for (auto& e : all_workers_) {
           auto& worker = e.first;
-          start_map->emplace(worker, hrc::now());
+          times_.insert(std::make_pair(worker, std::chrono::high_resolution_clock::now()));
           send(worker, default_iterations, req_width, req_height,
                offset, rows, req_min_re, req_max_re, req_min_im, req_max_im);
         }
       },
-      [=](const std::vector<uint16_t>& data, uint32_t) {
-        if (data.size() != image_size_) return; // old data TODO: Problem with 1 worker?
-        auto sender = caf::actor_cast<caf::actor>(current_sender());
-        auto t2 = std::chrono::high_resolution_clock::now();
-        auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - (*start_map)[sender]).count();
-        workers_[sender] = diff;
-        start_map->erase(sender);
-        if (start_map->empty()) {
-          auto add = [](size_t lhs, const std::pair<caf::actor, double>& rhs) {
-            return lhs + rhs.second;
-          };
-          auto total_time = std::accumulate(workers_.begin(), workers_.end(),
-                                            size_t{0}, add);
-          for (auto& e : workers_)
-            e.second = e.second / total_time;
-          double time = diff;
-          for (auto& e : workers_) {
-            time *= e.second;
-            break;
+      [=](const std::vector<uint16_t>& data, uint32_t offset) {
+        if (! *init) {
+          // finishe init
+          auto sender = caf::actor_cast<caf::actor>(current_sender());
+          for (auto& w : all_workers_) {
+            if (w.first == sender) {
+              auto t2 = std::chrono::high_resolution_clock::now();
+              auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - times_[sender]).count();
+              w.second = diff;
+              break;
+            }
           }
-          auto ms  = static_cast<double>(std::chrono::milliseconds(static_cast<uint16_t>(time)).count());
-          auto sec = static_cast<double>(std::chrono::milliseconds(1000).count());
-          double fps = sec / ms;
-          tick_rate_ = std::chrono::milliseconds(/*static_cast<uint16_t>(time) + 50*/1000);
-          std::cout << "Assumed FPS: " << fps << std::endl;
-          //buffer_min_size_ = fps < 1 ? static_cast<uint32_t>(1.0 / fps)
-          //                           : static_cast<uint32_t>(fps);
-          //buffer_min_size_ *= seconds_to_buffer_; // FIXME
-          buffer_min_size_ = static_cast<uint32_t>(fps) + 1 * seconds_to_buffer_;
-          buffer_max_size_ = buffer_min_size_ * 4;
-          become(init_buffer());
+          //
+          --*left;
+          if (*left == 0) {
+            *init = true;
+            calculate_weights(all_workers_.size());
+          }
+        } else {
+          concat_data(data, offset);
         }
       },
       [=](resize_atom, uint32_t w, uint32_t h) {
-        resize(w,h);
+        resize(w, h);
       },
       [=](limit_atom, normal_atom, uint32_t workers) {
-        send(this, calc_weights_atom::value, size_t{workers});
+        calculate_weights(workers);
       },
       caf::others() >> [=] {
         std::cout << to_string(current_message()) << std::endl;
       }
     };
   }
-  std::vector<caf::actor> all_workers_ = {};
+
+  //
+  std::map<caf::actor, std::chrono::time_point<std::chrono::high_resolution_clock>> times_ = {};
+  std::vector<std::pair<caf::actor, size_t>> all_workers_ = {};
+  size_t pending_chunks_ = 0;
   //
   weight_map workers_ = {};
   // image properties
   uint32_t image_height_ = 0;
-  uint32_t image_width_ = 0;
-  uint32_t image_size_ = 0;
+  uint32_t image_width_  = 0;
+  uint32_t image_size_   = 0;
   // fractal stream
   fractal_request_stream stream_;
   //
   image_sink& sink_;
-  // buffer
-  image_cache cache_;
   chunk_cache chunk_cache_ = {};
-  //
-  uint32_t seconds_to_buffer_ = 0;
-  uint32_t buffer_min_size_ = 0;
-  uint32_t buffer_max_size_ = 0;
-  // tick
-  std::chrono::milliseconds tick_rate_;
 };
 
 #endif // CLIENT_ACTOR_HPP

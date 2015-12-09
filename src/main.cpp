@@ -2,7 +2,6 @@
 
 #include "caf/all.hpp"
 #include "caf/io/all.hpp"
-#include "caf/riac/all.hpp"
 
 // fractal-demo extensions to CAF
 #include "caf/cec.hpp"

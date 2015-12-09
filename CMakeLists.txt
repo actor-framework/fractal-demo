@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 2.8.11)
 project(fractal_demo C CXX)
 
+# Add caf submodule
+set(CAF_BUILD_STATIC_ONLY yes)
+set(CAF_NO_UNIT_TESTS yes)
+set(CAF_NO_EXAMPLES yes)
+add_subdirectory("actor-framework")
+
 set(FRACTAL_DEMO_VERSION_MAJOR 0)
 set(FRACTAL_DEMO_VERSION_MINOR 1)
 set(FRACTAL_DEMO_VERSION_PATCH 0)
@@ -20,7 +26,6 @@ set (CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(OpenCL REQUIRED)
 find_package(Qt5Widgets REQUIRED)
-find_package(CAF COMPONENTS core io riac REQUIRED)
 
 # prohibit in-source builds
 if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -31,7 +36,7 @@ endif ()
 
 # check if the user provided CXXFLAGS on the command line
 if (CMAKE_CXX_FLAGS)
-    set(CXXFLAGS_PROVIDED true)
+  set(CXXFLAGS_PROVIDED true)
 endif ()
 if (CXXFLAGS_PROVIDED)
   set(CMAKE_CXX_FLAGS_DEBUG          "")
@@ -44,32 +49,6 @@ else ()
   set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
   set(CMAKE_CXX_FLAGS_RELEASE        "-O4")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
-endif ()
-
-# check for g++ >= 4.8 or clang++ > = 3.2
-try_run(ProgramResult
-        CompilationSucceeded
-        ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}/src/get_compiler_version.cpp
-        RUN_OUTPUT_VARIABLE CompilerVersion)
-if (NOT CompilationSucceeded OR NOT ProgramResult EQUAL 0)
-  message(FATAL_ERROR "Cannot determine compiler version")
-elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  if (CompilerVersion VERSION_GREATER 4.7)
-    message(STATUS "Found g++ version ${CompilerVersion}")
-  else ()
-    message(FATAL_ERROR "g++ >= 4.8 required (found: ${CompilerVersion}.")
-  endif ()
-elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  if (CompilerVersion VERSION_GREATER 3.1)
-    message(STATUS "Found clang++ version ${CompilerVersion}")
-  else ()
-    message(FATAL_ERROR "clang++ >= 3.2 required (found: ${CompilerVersion}.")
-  endif ()
-  if (NOT CXXFLAGS_PROVIDED)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-  endif ()
-else ()
-  message(FATAL_ERROR "Your C++ compiler does not support C++11.")
 endif ()
 
 # set build type (evaluate ENABLE_DEBUG flag)
@@ -93,9 +72,9 @@ qt5_wrap_ui(UI_HDRS controller.ui main.ui)
 # we need this to be able to include headers produced by uic in our code
 # (CMAKE_BINARY_DIR holds a path to the build directory, while INCLUDE_DIRECTORIES() works just like INCLUDEPATH
 # from qmake)
-include_directories(. include ${CMAKE_BINARY_DIR} ${CAF_INCLUDE_DIRS} ${OPENCL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDES})
+include_directories(. include ${CMAKE_BINARY_DIR} ${OPENCL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDES} actor-framework/libcaf_core/ actor-framework/libcaf_io/)
 
-set(SOURCES
+set(DEMO_SOURCES
     src/cec.cpp
     src/config.cpp
     src/imagelabel.cpp
@@ -107,15 +86,15 @@ set(SOURCES
     src/atoms.cpp
     src/fractal_request_stream.cpp)
 
-file(GLOB HEADERS "include/*.hpp" "caf/*.hpp")
+file(GLOB DEMO_HEADERS "include/*.hpp" "caf/*.hpp")
 
-add_executable(fractal-demo src/main.cpp ${SOURCES} ${HEADERS} ${UI_HDRS})
-target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES})
+add_executable(fractal-demo src/main.cpp ${DEMO_SOURCES} ${DEMO_HEADERS} ${UI_HDRS} ${CAF_HEADERS})
+target_link_libraries(fractal-demo ${CMAKE_DL_LIBS} libcaf_core_static libcaf_io_static ${Qt5Widgets_LIBRARIES})
 qt5_use_modules(fractal-demo Widgets)
 
-add_executable(cafrun src/cafrun.cpp)
-target_link_libraries(cafrun ${CMAKE_DL_LIBS} ${CAF_LIBRARIES})
+add_executable(cafrun src/cafrun.cpp ${CAF_HEADERS})
+target_link_libraries(cafrun ${CMAKE_DL_LIBS} libcaf_core_static libcaf_io_static)
 
-add_executable(controller src/controller.cpp ${SOURCES} ${HEADERS} ${UI_HDRS})
-target_link_libraries(controller ${CMAKE_DL_LIBS} ${CAF_LIBRARIES} ${Qt5Widgets_LIBRARIES})
+add_executable(controller src/controller.cpp ${DEMO_SOURCES} ${DEMO_HEADERS} ${UI_HDRS} ${CAF_HEADERS})
+target_link_libraries(controller ${CMAKE_DL_LIBS} libcaf_core_static libcaf_io_static ${Qt5Widgets_LIBRARIES})
 qt5_use_modules(controller Widgets)
